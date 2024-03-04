@@ -7,6 +7,9 @@ extern "C" {
 #include "lualib.h"
 }
 
+#include "../../MicroTex/src/latex.h"
+#include "../../MicroTex/src/platform/imgui/graphic_imgui.h"
+
 static const char* const formula_hint[] = {
 	"",
 
@@ -71,11 +74,17 @@ static ImFont* AddFontFromFileTTF(ImFontAtlas* atlas, const char* filename, floa
 	return atlas->AddFontFromMemoryTTF(data, (int)data_size, size_pixels, &font_cfg, glyph_ranges);
 }
 
+tex::TeXRender* tex_render;
+tex::Graphics2D_imgui tex_graphics;
+
+ImVector<ImWchar> fnt_main_ranges;
+ImVector<ImWchar> fnt_math_ranges;
+
 void MinBoolFunc::Init() {
 	ImGuiIO& io = ImGui::GetIO();
 
 	{
-		ImVector<ImWchar> fnt_main_ranges;
+		fnt_main_ranges.clear();
 		{
 			ImWchar _ranges[] = {
 				0x2000, 0x206F, // General Punctuation (for Overline)
@@ -105,7 +114,7 @@ void MinBoolFunc::Init() {
 			fnt_mono = fnt_main;
 		}
 
-		ImVector<ImWchar> fnt_math_ranges;
+		fnt_math_ranges.clear();
 		{
 			ImWchar _ranges[] = {
 				0x2000, 0x206F, // General Punctuation (for Overline)
@@ -126,7 +135,19 @@ void MinBoolFunc::Init() {
 			fnt_math = fnt_main;
 		}
 
-		io.Fonts->Build();
+		// io.Fonts->Build();
+	}
+
+	{
+		tex::Font_imgui::font_default = fnt_main;
+
+		tex::LaTeX::init("../MicroTex/res");
+
+		// std::wstring code = L"\\int_{now}^{+\\infty} \\text{Keep trying}";
+		// std::wstring code = L"(\\overline{x}~\\land)";
+		// std::wstring code = L"dV = g_{(i)} \\cdot (g_{(j)} * g_{(k)}) d_i d_j d_k";
+		std::wstring code = L"\\frac{ab}{c} + \\overline{x}";
+		tex_render = tex::LaTeX::parse(code, 720, 26, 10, tex::black);
 	}
 
 	strncpy_s(formula, formula_default, sizeof(formula) - 1);
@@ -139,6 +160,8 @@ void MinBoolFunc::Init() {
 
 void MinBoolFunc::Quit() {
 	lua_close(L);
+
+	tex::LaTeX::release();
 }
 
 void MinBoolFunc::ImGuiStep() {
@@ -465,7 +488,7 @@ void MinBoolFunc::ImGuiStep() {
 					if (!x_changes) {
 						if (cx == '0') {
 							result_lua += "not(x)";
-							result_unicode += "not(x)";
+							result_unicode += "\xC2\xACx";
 						} else if (cx == '1') {
 							result_lua += "x";
 							result_unicode += "x";
@@ -526,6 +549,9 @@ void MinBoolFunc::ImGuiStep() {
 			ImGui::TextUnformatted(result_unicode.c_str());
 			ImGui::PopFont();
 			ImGui::PopTextWrapPos();
+
+			tex_graphics.list = ImGui::GetWindowDrawList();
+			tex_render->draw(tex_graphics, 10, 10);
 
 		}
 

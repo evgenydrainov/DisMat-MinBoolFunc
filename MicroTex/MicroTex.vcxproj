@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{74d33e56-5e5e-4c8f-8a07-ea872494feea}</ProjectGuid>
+    <RootNamespace>MicroTex</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>NotSet</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>NotSet</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>NotSet</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>NotSet</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>$(SolutionDir)out\$(Configuration)\$(Platform)\</OutDir>
+    <IntDir>$(SolutionDir)out\intermediates\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>$(SolutionDir)out\$(Configuration)\$(Platform)\</OutDir>
+    <IntDir>$(SolutionDir)out\intermediates\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(SolutionDir)out\$(Configuration)\$(Platform)\</OutDir>
+    <IntDir>$(SolutionDir)out\intermediates\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(SolutionDir)out\$(Configuration)\$(Platform)\</OutDir>
+    <IntDir>$(SolutionDir)out\intermediates\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>BUILD_WIN32;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(ProjectDir)src\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>Gdiplus.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>BUILD_WIN32;_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(ProjectDir)src\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>Gdiplus.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>BUILD_WIN32;_CRT_SECURE_NO_WARNINGS;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(ProjectDir)src\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>Gdiplus.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>BUILD_WIN32;_CRT_SECURE_NO_WARNINGS;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(ProjectDir)src\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>Gdiplus.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="src\atom\atom.h" />
+    <ClInclude Include="src\atom\atom_basic.h" />
+    <ClInclude Include="src\atom\atom_char.h" />
+    <ClInclude Include="src\atom\atom_impl.h" />
+    <ClInclude Include="src\atom\atom_matrix.h" />
+    <ClInclude Include="src\atom\atom_row.h" />
+    <ClInclude Include="src\atom\atom_space.h" />
+    <ClInclude Include="src\box\box.h" />
+    <ClInclude Include="src\box\box_factory.h" />
+    <ClInclude Include="src\box\box_group.h" />
+    <ClInclude Include="src\box\box_single.h" />
+    <ClInclude Include="src\core\core.h" />
+    <ClInclude Include="src\core\formula.h" />
+    <ClInclude Include="src\core\glue.h" />
+    <ClInclude Include="src\core\macro.h" />
+    <ClInclude Include="src\core\macro_impl.h" />
+    <ClInclude Include="src\core\parser.h" />
+    <ClInclude Include="src\fonts\alphabet.h" />
+    <ClInclude Include="src\fonts\fonts.h" />
+    <ClInclude Include="src\fonts\font_basic.h" />
+    <ClInclude Include="src\fonts\font_info.h" />
+    <ClInclude Include="src\fonts\font_reg.h" />
+    <ClInclude Include="src\fonts\symbol_reg.h" />
+    <ClInclude Include="src\fonts\tex_font.h" />
+    <ClInclude Include="src\graphic\graphic.h" />
+    <ClInclude Include="src\graphic\graphic_basic.h" />
+    <ClInclude Include="src\platform\imgui\graphic_imgui.h" />
+    <ClInclude Include="src\res\parser\font_parser.h" />
+    <ClInclude Include="src\res\parser\formula_parser.h" />
+    <ClInclude Include="src\res\reg\builtin_font_reg.h" />
+    <ClInclude Include="src\res\reg\builtin_syms_reg.h" />
+    <ClInclude Include="src\utils\dict_tree.h" />
+    <ClInclude Include="src\utils\enums.h" />
+    <ClInclude Include="src\utils\exceptions.h" />
+    <ClInclude Include="src\utils\indexed_arr.h" />
+    <ClInclude Include="src\utils\log.h" />
+    <ClInclude Include="src\utils\nums.h" />
+    <ClInclude Include="src\utils\string_utils.h" />
+    <ClInclude Include="src\utils\utf.h" />
+    <ClInclude Include="src\utils\utils.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\atom\atom_basic.cpp" />
+    <ClCompile Include="src\atom\atom_char.cpp" />
+    <ClCompile Include="src\atom\atom_impl.cpp" />
+    <ClCompile Include="src\atom\atom_matrix.cpp" />
+    <ClCompile Include="src\atom\atom_row.cpp" />
+    <ClCompile Include="src\atom\atom_space.cpp" />
+    <ClCompile Include="src\atom\colors_def.cpp" />
+    <ClCompile Include="src\atom\unit_conversion.cpp" />
+    <ClCompile Include="src\box\box.cpp" />
+    <ClCompile Include="src\box\box_factory.cpp" />
+    <ClCompile Include="src\box\box_group.cpp" />
+    <ClCompile Include="src\box\box_single.cpp" />
+    <ClCompile Include="src\core\core.cpp" />
+    <ClCompile Include="src\core\formula.cpp" />
+    <ClCompile Include="src\core\formula_def.cpp" />
+    <ClCompile Include="src\core\glue.cpp" />
+    <ClCompile Include="src\core\localized_num.cpp" />
+    <ClCompile Include="src\core\macro.cpp" />
+    <ClCompile Include="src\core\macro_def.cpp" />
+    <ClCompile Include="src\core\macro_impl.cpp" />
+    <ClCompile Include="src\core\parser.cpp" />
+    <ClCompile Include="src\fonts\alphabet.cpp" />
+    <ClCompile Include="src\fonts\fonts.cpp" />
+    <ClCompile Include="src\fonts\font_basic.cpp" />
+    <ClCompile Include="src\fonts\font_info.cpp" />
+    <ClCompile Include="src\latex.cpp" />
+    <ClCompile Include="src\platform\imgui\graphic_imgui.cpp" />
+    <ClCompile Include="src\render.cpp" />
+    <ClCompile Include="src\res\builtin\formula_mappings.res.cpp" />
+    <ClCompile Include="src\res\builtin\symbol_mapping.res.cpp" />
+    <ClCompile Include="src\res\builtin\tex_param.res.cpp" />
+    <ClCompile Include="src\res\builtin\tex_symbols.res.cpp" />
+    <ClCompile Include="src\res\font\bi10.def.cpp" />
+    <ClCompile Include="src\res\font\bx10.def.cpp" />
+    <ClCompile Include="src\res\font\cmbsy10.def.cpp" />
+    <ClCompile Include="src\res\font\cmbx10.def.cpp" />
+    <ClCompile Include="src\res\font\cmbxti10.def.cpp" />
+    <ClCompile Include="src\res\font\cmex10.def.cpp" />
+    <ClCompile Include="src\res\font\cmmi10.def.cpp" />
+    <ClCompile Include="src\res\font\cmmi10_unchanged.def.cpp" />
+    <ClCompile Include="src\res\font\cmmib10.def.cpp" />
+    <ClCompile Include="src\res\font\cmmib10_unchanged.def.cpp" />
+    <ClCompile Include="src\res\font\cmr10.def.cpp" />
+    <ClCompile Include="src\res\font\cmss10.def.cpp" />
+    <ClCompile Include="src\res\font\cmssbx10.def.cpp" />
+    <ClCompile Include="src\res\font\cmssi10.def.cpp" />
+    <ClCompile Include="src\res\font\cmsy10.def.cpp" />
+    <ClCompile Include="src\res\font\cmti10.def.cpp" />
+    <ClCompile Include="src\res\font\cmti10_unchanged.def.cpp" />
+    <ClCompile Include="src\res\font\cmtt10.def.cpp" />
+    <ClCompile Include="src\res\font\dsrom10.def.cpp" />
+    <ClCompile Include="src\res\font\eufb10.def.cpp" />
+    <ClCompile Include="src\res\font\eufm10.def.cpp" />
+    <ClCompile Include="src\res\font\i10.def.cpp" />
+    <ClCompile Include="src\res\font\moustache.def.cpp" />
+    <ClCompile Include="src\res\font\msam10.def.cpp" />
+    <ClCompile Include="src\res\font\msbm10.def.cpp" />
+    <ClCompile Include="src\res\font\r10.def.cpp" />
+    <ClCompile Include="src\res\font\r10_unchanged.def.cpp" />
+    <ClCompile Include="src\res\font\rsfs10.def.cpp" />
+    <ClCompile Include="src\res\font\sb10.def.cpp" />
+    <ClCompile Include="src\res\font\sbi10.def.cpp" />
+    <ClCompile Include="src\res\font\si10.def.cpp" />
+    <ClCompile Include="src\res\font\special.def.cpp" />
+    <ClCompile Include="src\res\font\ss10.def.cpp" />
+    <ClCompile Include="src\res\font\stmary10.def.cpp" />
+    <ClCompile Include="src\res\font\tt10.def.cpp" />
+    <ClCompile Include="src\res\parser\font_parser.cpp" />
+    <ClCompile Include="src\res\parser\formula_parser.cpp" />
+    <ClCompile Include="src\res\reg\builtin_font_reg.cpp" />
+    <ClCompile Include="src\res\reg\builtin_syms_reg.cpp" />
+    <ClCompile Include="src\res\sym\amsfonts.def.cpp" />
+    <ClCompile Include="src\res\sym\amssymb.def.cpp" />
+    <ClCompile Include="src\res\sym\base.def.cpp" />
+    <ClCompile Include="src\res\sym\stmaryrd.def.cpp" />
+    <ClCompile Include="src\res\sym\symspecial.def.cpp" />
+    <ClCompile Include="src\tinyxml2.cpp" />
+    <ClCompile Include="src\utils\string_utils.cpp" />
+    <ClCompile Include="src\utils\utf.cpp" />
+    <ClCompile Include="src\utils\utils.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
