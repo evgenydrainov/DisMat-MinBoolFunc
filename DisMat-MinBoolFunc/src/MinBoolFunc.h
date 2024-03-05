@@ -33,15 +33,18 @@ struct MinBoolFunc {
 	int drag_y2;
 
 	struct Area {
-		int x1;
-		int y1;
-		int x2;
-		int y2;
+		int x;
+		int y;
+		int w;
+		int h;
 	};
 	std::vector<Area> areas;
 
 	std::string result_lua;
 	std::string result_unicode;
+
+	int karnaugh_xoff;
+	int karnaugh_yoff;
 
 	ImFont* fnt_main;
 	ImFont* fnt_mono;

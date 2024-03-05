@@ -81,6 +81,7 @@ void MinBoolFunc::Init() {
 				0x2000, 0x206F, // General Punctuation (for Overline)
 				0x2070, 0x209F, // Superscripts and Subscripts
 				0x2200, 0x22FF, // Mathematical Operators (for logical and, or)
+				0x25A0, 0x25FF, // Geometric Shapes (for triangle arrows)
 				0x3000, 0x036F, // Combining Diacritical Marks (for Combining Overline)
 				0,
 			};
@@ -110,6 +111,7 @@ void MinBoolFunc::Init() {
 			ImWchar _ranges[] = {
 				0x2000, 0x206F, // General Punctuation (for Overline)
 				0x2200, 0x22FF, // Mathematical Operators (for logical and, or)
+				0x25A0, 0x25FF, // Geometric Shapes (for triangle arrows)
 				0x3000, 0x036F, // Combining Diacritical Marks (for Combining Overline)
 				0,
 			};
@@ -139,6 +141,10 @@ void MinBoolFunc::Init() {
 
 void MinBoolFunc::Quit() {
 	lua_close(L);
+}
+
+static int wrap(int a, int b) {
+	return (a % b + b) % b;
 }
 
 void MinBoolFunc::ImGuiStep() {
@@ -279,25 +285,61 @@ void MinBoolFunc::ImGuiStep() {
 			memset(item_data, 0, sizeof(item_data));
 
 			ImGui::Text(u8"Карта Карно");
+
+			ImGui::PushFont(fnt_math);
+			{
+				if (ImGui::Button(u8"▲")) {
+					karnaugh_yoff++;
+					karnaugh_yoff = wrap(karnaugh_yoff, IM_ARRAYSIZE(col_header));
+				}
+
+				ImGui::SameLine();
+				if (ImGui::Button(u8"▼")) {
+					karnaugh_yoff--;
+					karnaugh_yoff = wrap(karnaugh_yoff, IM_ARRAYSIZE(col_header));
+				}
+
+				ImGui::SameLine();
+				if (ImGui::Button(u8"◀")) {
+					karnaugh_xoff++;
+					karnaugh_xoff = wrap(karnaugh_xoff, IM_ARRAYSIZE(row_header));
+				}
+
+				ImGui::SameLine();
+				if (ImGui::Button(u8"▶")) {
+					karnaugh_xoff--;
+					karnaugh_xoff = wrap(karnaugh_xoff, IM_ARRAYSIZE(row_header));
+				}
+			}
+			ImGui::PopFont();
+
 			if (ImGui::BeginTable("Karnaugh_map", 5, table_flags)) {
 
 				// header
 				{
 					ImGui::TableSetupColumn("z\\xy");
-					for (int i = 0; i < IM_ARRAYSIZE(row_header); i++) {
-						ImGui::TableSetupColumn(row_header[i]);
+
+					for (int _i = 0; _i < IM_ARRAYSIZE(row_header); _i++) {
+						int i = wrap(_i + karnaugh_xoff, IM_ARRAYSIZE(row_header));
+
+						const char* label = row_header[i];
+						ImGui::TableSetupColumn(label);
 					}
 
 					ImGui::TableHeadersRow();
 				}
 
-				for (int i = 0; i < IM_ARRAYSIZE(col_header); i++) {
+				for (int _i = 0; _i < IM_ARRAYSIZE(col_header); _i++) {
+					int i = wrap(_i + karnaugh_yoff, IM_ARRAYSIZE(col_header));
+
 					ImGui::TableNextRow();
 
 					ImGui::TableNextColumn();
 					ImGui::Text(col_header[i]);
 
-					for (int j = 0; j < 4; j++) {
+					for (int _j = 0; _j < IM_ARRAYSIZE(row_header); _j++) {
+						int j = wrap(_j + karnaugh_xoff, IM_ARRAYSIZE(row_header));
+
 						ImGui::TableNextColumn();
 						if (items[i][j]) {
 							ImGui::PushID((i + 1) * 10000 + j);
@@ -317,12 +359,12 @@ void MinBoolFunc::ImGuiStep() {
 			}
 
 			ImU32 area_colors[] = {
-				IM_COL32(0xFF, 0x00, 0x00, 0xFF),
-				IM_COL32(0xFF, 0x92, 0x00, 0xFF),
-				IM_COL32(0x42, 0xD5, 0x2B, 0xFF),
-				IM_COL32(0x24, 0xE0, 0xD4, 0xFF),
-				IM_COL32(0x00, 0x1B, 0xFF, 0xFF),
-				IM_COL32(0xFF, 0x00, 0xFE, 0xFF),
+				IM_COL32(0xFF, 0x00, 0x00, 0x80),
+				IM_COL32(0xFF, 0x92, 0x00, 0x80),
+				IM_COL32(0x42, 0xD5, 0x2B, 0x80),
+				IM_COL32(0x24, 0xE0, 0xD4, 0x80),
+				IM_COL32(0x00, 0x1B, 0xFF, 0x80),
+				IM_COL32(0xFF, 0x00, 0xFE, 0x80),
 			};
 
 			for (int i = 0; i < areas.size(); i++) {
@@ -330,18 +372,18 @@ void MinBoolFunc::ImGuiStep() {
 
 				ImDrawList* list = ImGui::GetWindowDrawList();
 
-				ImRect rect1 = item_data[area.y1][area.x1].rect;
-				ImRect rect2 = item_data[area.y2][area.x2].rect;
+				for (int _y = area.y; _y < area.y + area.h; _y++) {
+					int y = wrap(_y, IM_ARRAYSIZE(col_header));
 
-				ImRect rect;
-				rect.Min.x = fminf(rect1.Min.x, rect2.Min.x) + i;
-				rect.Min.y = fminf(rect1.Min.y, rect2.Min.y) + i;
+					for (int _x = area.x; _x < area.x + area.w; _x++) {
+						int x = wrap(_x, IM_ARRAYSIZE(row_header));
 
-				rect.Max.x = fmaxf(rect1.Max.x, rect2.Max.x) - i;
-				rect.Max.y = fmaxf(rect1.Max.y, rect2.Max.y) - i;
+						ImRect rect = item_data[y][x].rect;
 
-				ImU32 color = area_colors[i % IM_ARRAYSIZE(area_colors)];
-				list->AddRect(rect.Min, rect.Max, color, 0, 0, 2);
+						ImU32 color = area_colors[i % IM_ARRAYSIZE(area_colors)];
+						list->AddRect(rect.Min, rect.Max, color, 0, 0, 2);
+					}
+				}
 			}
 
 			if (dragging) {
@@ -375,12 +417,43 @@ void MinBoolFunc::ImGuiStep() {
 				} else {
 					if (areas.size() < 99) {
 						Area area = {};
-						area.x1 = drag_x;
-						area.y1 = drag_y;
-						area.x2 = drag_x2;
-						area.y2 = drag_y2;
+						area.x = drag_x;
+						area.y = drag_y;
+						area.w = drag_x2 - drag_x + 1;
+						area.h = drag_y2 - drag_y + 1;
+
+						// check if area already exists
+						for (int i = 0; i < areas.size(); i++) {
+							if (area.x == areas[i].x && area.y == areas[i].y
+								&& area.w == areas[i].w && area.h == areas[i].h) {
+								goto l_area_add_out;
+							}
+						}
+
+						int S = area.w * area.h;
+						if (!ImIsPowerOfTwo(S)) {
+							goto l_area_add_out;
+						}
+
+						// must contain only 1's
+						for (int y = area.y1;
+							 y != wrap(area.y2 + 1, IM_ARRAYSIZE(col_header));
+							 y = wrap(y + 1, IM_ARRAYSIZE(col_header))) {
+
+							for (int x = area.x1;
+								 x != wrap(area.x2 + 1, IM_ARRAYSIZE(row_header));
+								 x = wrap(x + 1, IM_ARRAYSIZE(row_header))) {
+
+								if (!items[y][x]) {
+									goto l_area_add_out;
+								}
+							}
+						}
+
 						areas.push_back(area);
 					}
+
+				l_area_add_out:
 
 					dragging = false;
 					drag_id = 0;
@@ -465,7 +538,7 @@ void MinBoolFunc::ImGuiStep() {
 					if (!x_changes) {
 						if (cx == '0') {
 							result_lua += "not(x)";
-							result_unicode += "not(x)";
+							result_unicode += u8"¬x";
 						} else if (cx == '1') {
 							result_lua += "x";
 							result_unicode += "x";
@@ -480,7 +553,7 @@ void MinBoolFunc::ImGuiStep() {
 					if (!y_changes) {
 						if (cy == '0') {
 							result_lua += "not(y)";
-							result_unicode += "not(y)";
+							result_unicode += u8"¬y";
 						} else if (cy == '1') {
 							result_lua += "y";
 							result_unicode += "y";
@@ -495,7 +568,7 @@ void MinBoolFunc::ImGuiStep() {
 					if (!z_changes) {
 						if (cz == '0') {
 							result_lua += "not(z)";
-							result_unicode += "not(z)";
+							result_unicode += u8"¬z";
 						} else if (cz == '1') {
 							result_lua += "z";
 							result_unicode += "z";
