@@ -27,8 +27,8 @@ struct MinBoolFunc {
 
 	bool dragging;
 	ImGuiID drag_id;
-	int drag_x;
-	int drag_y;
+	int drag_x1;
+	int drag_y1;
 	int drag_x2;
 	int drag_y2;
 

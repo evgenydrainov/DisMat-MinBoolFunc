@@ -29,18 +29,46 @@ void ResetDevice();
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 // Main code
+
+#ifdef NDEBUG
+int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmdshow)
+#else
 int main(int argc, char* argv[])
+#endif
 {
 	// Create application window
 	ImGui_ImplWin32_EnableDpiAwareness();
 	WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"ImGui Example", nullptr };
 	::RegisterClassExW(&wc);
-	HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Минимизация булевых функций", WS_OVERLAPPEDWINDOW, 100, 100, 1280, 800, nullptr, nullptr, wc.hInstance, nullptr);
+
+	int monitor_width  = ::GetSystemMetrics(SM_CXSCREEN);
+	int monitor_height = ::GetSystemMetrics(SM_CYSCREEN);
+	int window_width  = 850;
+	int window_height = 950;
+
+	int window_x = (monitor_width  - window_width)  / 2;
+	int window_y = (monitor_height - window_height) / 2;
+
+	if (window_x < 0) window_x = 0;
+	if (window_y < 0) window_y = 0;
+
+	HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Минимизация булевых функций",
+								WS_OVERLAPPEDWINDOW,
+								window_x, window_y,
+								window_width, window_height,
+								nullptr, nullptr, wc.hInstance, nullptr);
+
+	// MessageBoxW(NULL,
+	// 			L"Манямирок треснул и не отвечает. Желаете продолжить?",
+	// 			L"MANYAMIROQUE",
+	// 			0);
 
 	// Initialize Direct3D
 	if (!CreateDeviceD3D(hwnd))
 	{
+		MessageBoxW(NULL, L"Couldn't create D3D device.", L"Error", 0);
 		CleanupDeviceD3D();
+		::DestroyWindow(hwnd);
 		::UnregisterClassW(wc.lpszClassName, wc.hInstance);
 		return 1;
 	}
@@ -56,32 +84,12 @@ int main(int argc, char* argv[])
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
-	// Setup Dear ImGui style
-	// ImGui::StyleColorsDark();
-	ImGui::StyleColorsLight();
-
 	// Setup Platform/Renderer backends
 	ImGui_ImplWin32_Init(hwnd);
 	ImGui_ImplDX9_Init(g_pd3dDevice);
 
-	// Load Fonts
-	// - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
-	// - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
-	// - If the file cannot be loaded, the function will return a nullptr. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
-	// - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
-	// - Use '#define IMGUI_ENABLE_FREETYPE' in your imconfig file to use Freetype for higher quality font rendering.
-	// - Read 'docs/FONTS.md' for more instructions and details.
-	// - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
-	//io.Fonts->AddFontDefault();
-	//io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\segoeui.ttf", 24.0f);
-	//io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
-	//io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
-	//io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
-	//ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, nullptr, io.Fonts->GetGlyphRangesJapanese());
-	//IM_ASSERT(font != nullptr);
-
 	// Our state
-	bool show_demo_window = true;
+	bool show_demo_window = false;
 	bool show_another_window = false;
 	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
