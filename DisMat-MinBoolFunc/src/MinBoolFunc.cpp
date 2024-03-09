@@ -7,6 +7,11 @@ extern "C" {
 #include "lualib.h"
 }
 
+#ifdef __ANDROID__
+#define strncpy_s(dest, src, count) strncpy(dest, src, count)
+#define _snprintf_s(buf, count, fmt, ...) snprintf(buf, count, fmt, __VA_ARGS__)
+#endif
+
 static const char* const formula_hint[] = {
 	"",
 
@@ -49,6 +54,18 @@ static const char* const formula_default =
 "\treturn t[x .. y .. z] == 1\n"
 "end\n";
 
+/*
+void* operator new(size_t size) {
+	printf("new(%zu)\n", size);
+	return malloc(size);
+}
+
+void* operator new[](size_t size) {
+	printf("new[](%zu)\n", size);
+	return malloc(size);
+}
+//*/
+
 // 
 // Don't assert on fail
 // 
@@ -71,8 +88,47 @@ static ImFont* AddFontFromFileTTF(ImFontAtlas* atlas, const char* filename, floa
 	return atlas->AddFontFromMemoryTTF(data, (int)data_size, size_pixels, &font_cfg, glyph_ranges);
 }
 
+#ifdef __ANDROID__
+static void ScrollWhenDraggingOnVoid(const ImVec2& delta, ImGuiMouseButton mouse_button)
+{
+	static ImVec2 _delta = {};
+
+	ImGuiContext& g = *ImGui::GetCurrentContext();
+	ImGuiWindow* window = g.CurrentWindow;
+	bool hovered = false;
+	bool held = false;
+	ImGuiID id = window->GetID("##scrolldraggingoverlay");
+	ImGui::KeepAliveID(id);
+	ImGuiButtonFlags button_flags = (mouse_button == 0) ? ImGuiButtonFlags_MouseButtonLeft : (mouse_button == 1) ? ImGuiButtonFlags_MouseButtonRight : ImGuiButtonFlags_MouseButtonMiddle;
+	if (g.HoveredId == 0) // If nothing hovered so far in the frame (not same as IsAnyItemHovered()!)
+		ImGui::ButtonBehavior(window->Rect(), id, &hovered, &held, button_flags);
+	if (held)
+	{
+		_delta = delta;
+	}
+
+	if (_delta.x != 0)
+	{
+		ImGui::SetScrollX(window, window->Scroll.x + _delta.x);
+		_delta.x *= 0.80f;
+	}
+	if (_delta.y != 0)
+	{
+		ImGui::SetScrollY(window, window->Scroll.y + _delta.y);
+		_delta.y *= 0.80f;
+	}
+}
+#endif
+
 void MinBoolFunc::Init() {
+	ImGui::StyleColorsLight();
+
 	ImGuiIO& io = ImGui::GetIO();
+
+#ifdef __ANDROID__
+	ImGui::GetStyle().ScaleAllSizes(2);
+	io.FontGlobalScale = 2;
+#endif
 
 	{
 		ImVector<ImWchar> fnt_main_ranges;
@@ -94,7 +150,16 @@ void MinBoolFunc::Init() {
 			builder.BuildRanges(&fnt_main_ranges);
 		}
 
+#ifdef __ANDROID__
+		fnt_main = AddFontFromFileTTF(io.Fonts, "/system/fonts/Roboto-Regular.ttf", 24, nullptr, fnt_main_ranges.Data);
+#else
 		fnt_main = AddFontFromFileTTF(io.Fonts, "C:\\Windows\\Fonts\\segoeui.ttf", 24, nullptr, fnt_main_ranges.Data);
+#endif
+
+		if (!fnt_main) {
+			fnt_main = AddFontFromFileTTF(io.Fonts, "segoeui.ttf", 24, nullptr, fnt_main_ranges.Data);
+		}
+
 		if (!fnt_main) {
 			ImFontConfig config;
 			config.SizePixels = 20;
@@ -102,6 +167,11 @@ void MinBoolFunc::Init() {
 		}
 
 		fnt_mono = AddFontFromFileTTF(io.Fonts, "C:\\Windows\\Fonts\\cour.ttf", 24);
+
+		if (!fnt_mono) {
+			fnt_mono = AddFontFromFileTTF(io.Fonts, "cour.ttf", 24);
+		}
+
 		if (!fnt_mono) {
 			fnt_mono = fnt_main;
 		}
@@ -110,6 +180,7 @@ void MinBoolFunc::Init() {
 		{
 			ImWchar _ranges[] = {
 				0x2000, 0x206F, // General Punctuation (for Overline)
+				0x2070, 0x209F, // Superscripts and Subscripts
 				0x2200, 0x22FF, // Mathematical Operators (for logical and, or)
 				0x25A0, 0x25FF, // Geometric Shapes (for triangle arrows)
 				0x3000, 0x036F, // Combining Diacritical Marks (for Combining Overline)
@@ -124,12 +195,19 @@ void MinBoolFunc::Init() {
 		}
 
 		fnt_math = AddFontFromFileTTF(io.Fonts, "C:\\Windows\\Fonts\\cambria.ttc", 24, nullptr, fnt_math_ranges.Data);
+
+		if (!fnt_math) {
+			fnt_math = AddFontFromFileTTF(io.Fonts, "cambria.ttc", 24, nullptr, fnt_math_ranges.Data);
+		}
+
 		if (!fnt_math) {
 			fnt_math = fnt_main;
 		}
 
 		io.Fonts->Build();
 	}
+
+	io.IniFilename = nullptr;
 
 	strncpy_s(formula, formula_default, sizeof(formula) - 1);
 
@@ -147,8 +225,43 @@ static int wrap(int a, int b) {
 	return (a % b + b) % b;
 }
 
+static void StrAppend(char* buf, int count, const char* str) {
+	bool found_null = false;
+
+	int i;
+	for (i = 0; i < count - 1; i++) {
+		if (buf[i] == 0) {
+			found_null = true;
+		}
+	}
+
+	if (!found_null) {
+		return;
+	}
+
+	int j;
+	for (j = 0; i + j < count - 1; j++) {
+		if (str[j] == 0) {
+			break;
+		}
+
+		buf[i + j] = str[j];
+	}
+
+	buf[i + j] = 0;
+}
+
 void MinBoolFunc::ImGuiStep() {
-	if (ImGui::Begin(u8"Минимизация булевых функций")) {
+	{
+		ImGuiIO& io = ImGui::GetIO();
+
+		ImGui::SetNextWindowPos({});
+		ImGui::SetNextWindowSize(io.DisplaySize);
+	}
+
+	if (ImGui::Begin(u8"Минимизация булевых функций", nullptr,
+					 ImGuiWindowFlags_NoDecoration
+					 | ImGuiWindowFlags_NoSavedSettings)) {
 
 		ImGuiTableFlags table_flags = (ImGuiTableFlags_Borders
 									   | ImGuiTableFlags_RowBg);
@@ -159,13 +272,13 @@ void MinBoolFunc::ImGuiStep() {
 		{
 			ImGui::Text(u8"Кол-во переменных: ");
 
-			char preview[] = {'0' + variable_count, 0};
+			char preview[] = {(char)('0' + variable_count), 0};
 
 			ImGui::SameLine();
 			if (ImGui::BeginCombo("##variable_count", preview,
 								  ImGuiComboFlags_WidthFitPreview)) {
 				for (int i = 2; i <= MAX_VARIABLE_COUNT; i++) {
-					char label[] = {'0' + i, 0};
+					char label[] = {(char)('0' + i), 0};
 
 					if (ImGui::Selectable(label)) {
 						variable_count = i;
@@ -221,7 +334,7 @@ void MinBoolFunc::ImGuiStep() {
 			// header
 			{
 				for (int i = 0; i < variable_count; i++) {
-					char label[] = {'x', 0xE2, 0x82, 0x80 + (i + 1), 0}; // U+2080
+					char label[] = {'x', (char)0xE2, (char)0x82, (char)(0x80 + (i + 1)), 0}; // U+2080
 
 					ImGui::TableSetupColumn(label);
 				}
@@ -261,28 +374,99 @@ void MinBoolFunc::ImGuiStep() {
 		// 
 		// Карта Карно
 		// 
-		if (variable_count != 3) {
-			goto l_window_end;
-		}
-
 		{
-			const char* row_header[] = {"00", "01", "11", "10"};
-			const char* col_header[] = {"0", "1"};
+			static std::vector<const char*> row_header;
+			static std::vector<const char*> col_header;
+			static std::vector<const char*> row_header2;
+			static std::vector<const char*> col_header2;
+			static std::vector<bool> cells;
+			const char* cell_header = "?";
+			static std::vector<const char*> var_names_lua;
+			static std::vector<const char*> var_names_unicode;
 
-			bool items[][4] = {
-				{truth_table[0b000], truth_table[0b010], truth_table[0b110], truth_table[0b100]},
-				{truth_table[0b001], truth_table[0b011], truth_table[0b111], truth_table[0b101]},
-			};
+			switch (variable_count) {
+				case 2: {
+					row_header = {"0", "1"}; // x
+					col_header = {"0", "1"}; // y
+					cells = {
+						truth_table[0b00], truth_table[0b10],
+						truth_table[0b01], truth_table[0b11],
+					};
+					cell_header = "y\\x";
+					row_header2 = {"0..", "1.."};
+					col_header2 = {"0..", "1.."};
+					break;
+				}
+				case 3: {
+					row_header = {"00", "01", "11", "10"}; // xy
+					col_header = {"0", "1"}; // z
+					cells = {
+						truth_table[0b000], truth_table[0b010], truth_table[0b110], truth_table[0b100],
+						truth_table[0b001], truth_table[0b011], truth_table[0b111], truth_table[0b101],
+					};
+					cell_header = "z\\xy";
+					row_header2 = {"00.", "01.", "11.", "10."};
+					col_header2 = {"0..", "1.."};
+					break;
+				}
+				case 4: {
+					row_header = {"00", "01", "11", "10"}; // x1 x2
+					col_header = {"00", "01", "11", "10"}; // x3 x4
+					cells = {
+						truth_table[0b0000], truth_table[0b0100], truth_table[0b1100], truth_table[0b1000],
+						truth_table[0b0001], truth_table[0b0101], truth_table[0b1101], truth_table[0b1001],
+						truth_table[0b0011], truth_table[0b0111], truth_table[0b1111], truth_table[0b1011],
+						truth_table[0b0010], truth_table[0b0110], truth_table[0b1110], truth_table[0b1010],
+					};
+					cell_header = u8"x₃x₄\\x₁x₂";
+					row_header2 = {"00.", "01.", "11.", "10."};
+					col_header2 = {"00.", "01.", "11.", "10."};
+					break;
+				}
+				case 5: {
+					row_header = {"000", "001", "011", "010", "110", "111", "101", "100"}; // x1 x2 x3
+					col_header = {"00", "01", "11", "10"}; // x4 x5
+					cells = {
+						truth_table[0b00000], truth_table[0b00100], truth_table[0b01100], truth_table[0b01000], truth_table[0b11000], truth_table[0b11100], truth_table[0b10100], truth_table[0b10000],
+						truth_table[0b00001], truth_table[0b00101], truth_table[0b01101], truth_table[0b01001], truth_table[0b11001], truth_table[0b11101], truth_table[0b10101], truth_table[0b10001],
+						truth_table[0b00011], truth_table[0b00111], truth_table[0b01111], truth_table[0b01011], truth_table[0b11011], truth_table[0b11111], truth_table[0b10111], truth_table[0b10011],
+						truth_table[0b00010], truth_table[0b00110], truth_table[0b01110], truth_table[0b01010], truth_table[0b11010], truth_table[0b11110], truth_table[0b10110], truth_table[0b10010],
+					};
+					cell_header = u8"x₄x₅\\x₁x₂x₃";
+					row_header2 = {"000", "001", "011", "010", "110", "111", "101", "100"};
+					col_header2 = {"00.", "01.", "11.", "10."};
+					break;
+				}
+			}
 
-			struct ItemData {
-				ImGuiID id;
-				ImRect rect;
-				int i;
-				int j;
-			};
+			switch (variable_count) {
+				case 2:
+				case 3: {
+					var_names_lua = {"x", "y", "z", "w"};
+					var_names_unicode = {"x", "y", "z", "w"};
+					break;
+				}
 
-			static ItemData item_data[IM_ARRAYSIZE(items)][IM_ARRAYSIZE(items[0])];
-			memset(item_data, 0, sizeof(item_data));
+				default:
+				case 4:
+				case 5: {
+					var_names_lua = {"x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9"};
+					var_names_unicode = {u8"x₁", u8"x₂", u8"x₃", u8"x₄", u8"x₅", u8"x₆", u8"x₇", u8"x₈", u8"x₉"};
+					break;
+				}
+			}
+
+			static std::vector<std::vector<ImRect>> cell_rects;
+			static std::vector<std::vector<ImRect>> cell_rects_abs;
+			static std::vector<std::vector<ImGuiID>> cell_ids_abs;
+
+			cell_rects.resize(col_header.size());
+			cell_rects_abs.resize(col_header.size());
+			cell_ids_abs.resize(col_header.size());
+
+			for (auto& v : cell_rects) v.resize(row_header.size());
+			for (auto& v : cell_rects_abs) v.resize(row_header.size());
+			for (auto& v : cell_ids_abs) v.resize(row_header.size());
 
 			ImGui::Text(u8"Карта Карно");
 
@@ -290,37 +474,37 @@ void MinBoolFunc::ImGuiStep() {
 			{
 				if (ImGui::Button(u8"▲")) {
 					karnaugh_yoff++;
-					karnaugh_yoff = wrap(karnaugh_yoff, IM_ARRAYSIZE(col_header));
+					karnaugh_yoff = wrap(karnaugh_yoff, col_header.size());
 				}
 
 				ImGui::SameLine();
 				if (ImGui::Button(u8"▼")) {
 					karnaugh_yoff--;
-					karnaugh_yoff = wrap(karnaugh_yoff, IM_ARRAYSIZE(col_header));
+					karnaugh_yoff = wrap(karnaugh_yoff, col_header.size());
 				}
 
 				ImGui::SameLine();
 				if (ImGui::Button(u8"◀")) {
 					karnaugh_xoff++;
-					karnaugh_xoff = wrap(karnaugh_xoff, IM_ARRAYSIZE(row_header));
+					karnaugh_xoff = wrap(karnaugh_xoff, row_header.size());
 				}
 
 				ImGui::SameLine();
 				if (ImGui::Button(u8"▶")) {
 					karnaugh_xoff--;
-					karnaugh_xoff = wrap(karnaugh_xoff, IM_ARRAYSIZE(row_header));
+					karnaugh_xoff = wrap(karnaugh_xoff, row_header.size());
 				}
 			}
 			ImGui::PopFont();
 
-			if (ImGui::BeginTable("Karnaugh_map", 5, table_flags)) {
+			if (ImGui::BeginTable("Karnaugh_map", row_header.size() + 1, table_flags)) {
 
 				// header
 				{
-					ImGui::TableSetupColumn("z\\xy");
+					ImGui::TableSetupColumn(cell_header);
 
-					for (int _i = 0; _i < IM_ARRAYSIZE(row_header); _i++) {
-						int i = wrap(_i + karnaugh_xoff, IM_ARRAYSIZE(row_header));
+					for (int _i = 0; _i < row_header.size(); _i++) {
+						int i = wrap(_i + karnaugh_xoff, row_header.size());
 
 						const char* label = row_header[i];
 						ImGui::TableSetupColumn(label);
@@ -329,28 +513,31 @@ void MinBoolFunc::ImGuiStep() {
 					ImGui::TableHeadersRow();
 				}
 
-				for (int _i = 0; _i < IM_ARRAYSIZE(col_header); _i++) {
-					int i = wrap(_i + karnaugh_yoff, IM_ARRAYSIZE(col_header));
+				for (int _i = 0; _i < col_header.size(); _i++) {
+					int i = wrap(_i + karnaugh_yoff, col_header.size());
 
 					ImGui::TableNextRow();
 
 					ImGui::TableNextColumn();
-					ImGui::Text(col_header[i]);
+					ImGui::TextUnformatted(col_header[i]);
 
-					for (int _j = 0; _j < IM_ARRAYSIZE(row_header); _j++) {
-						int j = wrap(_j + karnaugh_xoff, IM_ARRAYSIZE(row_header));
+					for (int _j = 0; _j < row_header.size(); _j++) {
+						int j = wrap(_j + karnaugh_xoff, row_header.size());
 
 						ImGui::TableNextColumn();
-						if (items[i][j]) {
+						int w = row_header.size();
+						if (cells[j + i * w]) {
 							ImGui::PushID((i + 1) * 10000 + j);
 							ImGui::Selectable("1");
 							ImGui::PopID();
 
-							item_data[i][j].id = ImGui::GetItemID();
-							item_data[i][j].rect.Min = ImGui::GetItemRectMin();
-							item_data[i][j].rect.Max = ImGui::GetItemRectMax();
-							item_data[i][j].i = i;
-							item_data[i][j].j = j;
+							cell_rects[i][j] = {ImGui::GetItemRectMin(), ImGui::GetItemRectMax()};
+							cell_rects_abs[_i][_j] = {ImGui::GetItemRectMin(), ImGui::GetItemRectMax()};
+							cell_ids_abs[_i][_j] = ImGui::GetItemID();
+						} else {
+							cell_rects[i][j] = {};
+							cell_rects_abs[_i][_j] = {};
+							cell_ids_abs[_i][_j] = 0;
 						}
 					}
 				}
@@ -359,13 +546,21 @@ void MinBoolFunc::ImGuiStep() {
 			}
 
 			ImU32 area_colors[] = {
-				IM_COL32(0xFF, 0x00, 0x00, 0x80),
-				IM_COL32(0xFF, 0x92, 0x00, 0x80),
-				IM_COL32(0x42, 0xD5, 0x2B, 0x80),
-				IM_COL32(0x24, 0xE0, 0xD4, 0x80),
-				IM_COL32(0x00, 0x1B, 0xFF, 0x80),
-				IM_COL32(0xFF, 0x00, 0xFE, 0x80),
+				// IM_COL32(0xFF, 0x00, 0x00, 0x40),
+				// IM_COL32(0xFF, 0x92, 0x00, 0x40),
+				// IM_COL32(0x42, 0xD5, 0x2B, 0x40),
+				// IM_COL32(0x24, 0xE0, 0xD4, 0x40),
+				// IM_COL32(0x00, 0x1B, 0xFF, 0x40),
+				// IM_COL32(0xFF, 0x00, 0xFE, 0x40),
+
+				IM_COL32(0xFF, 0x00, 0x00, 0x40),
+				IM_COL32(0x00, 0x00, 0xFF, 0x40),
 			};
+
+			// areas = {
+			// 	{3, 0, 2, 2},
+			// 	{0, 0, 2, 1},
+			// };
 
 			for (int i = 0; i < areas.size(); i++) {
 				const Area& area = areas[i];
@@ -373,15 +568,15 @@ void MinBoolFunc::ImGuiStep() {
 				ImDrawList* list = ImGui::GetWindowDrawList();
 
 				for (int _y = area.y; _y < area.y + area.h; _y++) {
-					int y = wrap(_y, IM_ARRAYSIZE(col_header));
+					int y = wrap(_y, col_header.size());
 
 					for (int _x = area.x; _x < area.x + area.w; _x++) {
-						int x = wrap(_x, IM_ARRAYSIZE(row_header));
+						int x = wrap(_x, row_header.size());
 
-						ImRect rect = item_data[y][x].rect;
+						ImRect rect = cell_rects[y][x];
 
 						ImU32 color = area_colors[i % IM_ARRAYSIZE(area_colors)];
-						list->AddRect(rect.Min, rect.Max, color, 0, 0, 2);
+						list->AddRectFilled(rect.Min, rect.Max, color);
 					}
 				}
 			}
@@ -389,9 +584,9 @@ void MinBoolFunc::ImGuiStep() {
 			if (dragging) {
 				if (ImGui::GetActiveID() == drag_id) {
 
-					for (int i = 0; i < IM_ARRAYSIZE(item_data); i++) {
-						for (int j = 0; j < IM_ARRAYSIZE(item_data[i]); j++) {
-							if (item_data[i][j].id != 0 && item_data[i][j].rect.Contains(ImGui::GetMousePos())) {
+					for (int i = 0; i < col_header.size(); i++) {
+						for (int j = 0; j < row_header.size(); j++) {
+							if (cell_ids_abs[i][j] != 0 && cell_rects_abs[i][j].Contains(ImGui::GetMousePos())) {
 								drag_x2 = j;
 								drag_y2 = i;
 								goto l_break1;
@@ -403,24 +598,25 @@ void MinBoolFunc::ImGuiStep() {
 
 					ImDrawList* list = ImGui::GetWindowDrawList();
 
-					ImRect rect1 = item_data[drag_y][drag_x].rect;
-					ImRect rect2 = item_data[drag_y2][drag_x2].rect;
+					ImRect rect1 = cell_rects_abs[drag_y1][drag_x1];
+					ImRect rect2 = cell_rects_abs[drag_y2][drag_x2];
 
 					ImRect rect;
-					rect.Min.x = fminf(rect1.Min.x, rect2.Min.x);
-					rect.Min.y = fminf(rect1.Min.y, rect2.Min.y);
-
-					rect.Max.x = fmaxf(rect1.Max.x, rect2.Max.x);
-					rect.Max.y = fmaxf(rect1.Max.y, rect2.Max.y);
+					rect.Min = ImMin(rect1.Min, rect2.Min);
+					rect.Max = ImMax(rect1.Max, rect2.Max);
 
 					list->AddRect(rect.Min, rect.Max, COLOR_RED, 0, 0, 4);
 				} else {
 					if (areas.size() < 99) {
 						Area area = {};
-						area.x = drag_x;
-						area.y = drag_y;
-						area.w = drag_x2 - drag_x + 1;
-						area.h = drag_y2 - drag_y + 1;
+						area.x = ImMin(drag_x1, drag_x2) + karnaugh_xoff;
+						area.y = ImMin(drag_y1, drag_y2) + karnaugh_yoff;
+
+						area.x = wrap(area.x, row_header.size());
+						area.y = wrap(area.y, col_header.size());
+
+						area.w = ImAbs(drag_x2 - drag_x1) + 1;
+						area.h = ImAbs(drag_y2 - drag_y1) + 1;
 
 						// check if area already exists
 						for (int i = 0; i < areas.size(); i++) {
@@ -436,15 +632,12 @@ void MinBoolFunc::ImGuiStep() {
 						}
 
 						// must contain only 1's
-						for (int y = area.y1;
-							 y != wrap(area.y2 + 1, IM_ARRAYSIZE(col_header));
-							 y = wrap(y + 1, IM_ARRAYSIZE(col_header))) {
-
-							for (int x = area.x1;
-								 x != wrap(area.x2 + 1, IM_ARRAYSIZE(row_header));
-								 x = wrap(x + 1, IM_ARRAYSIZE(row_header))) {
-
-								if (!items[y][x]) {
+						for (int _y = area.y; _y < area.y + area.h; _y++) {
+							int y = wrap(_y, col_header.size());
+							for (int _x = area.x; _x < area.x + area.w; _x++) {
+								int x = wrap(_x, row_header.size());
+								int w = row_header.size();
+								if (!cells[x + y * w]) {
 									goto l_area_add_out;
 								}
 							}
@@ -459,15 +652,15 @@ void MinBoolFunc::ImGuiStep() {
 					drag_id = 0;
 				}
 			} else {
-				for (int i = 0; i < IM_ARRAYSIZE(item_data); i++) {
-					for (int j = 0; j < IM_ARRAYSIZE(item_data[i]); j++) {
-						if (item_data[i][j].id != 0 && item_data[i][j].id == ImGui::GetActiveID()) {
+				for (int i = 0; i < col_header.size(); i++) {
+					for (int j = 0; j < row_header.size(); j++) {
+						if (cell_ids_abs[i][j] != 0 && cell_ids_abs[i][j] == ImGui::GetActiveID()) {
 							dragging = true;
-							drag_id = item_data[i][j].id;
-							drag_x = j;
-							drag_y = i;
-							drag_x2 = drag_x;
-							drag_y2 = drag_y;
+							drag_id = cell_ids_abs[i][j];
+							drag_x1 = j;
+							drag_y1 = i;
+							drag_x2 = drag_x1;
+							drag_y2 = drag_y1;
 							goto l_break2;
 						}
 					}
@@ -499,8 +692,23 @@ void MinBoolFunc::ImGuiStep() {
 					subscript[j++] = 0;
 				}
 
-				ImU32 color = area_colors[i % IM_ARRAYSIZE(area_colors)];
-				ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(color), "S%s: (%d, %d) -> (%d, %d)", subscript, area.x1, area.y1, area.x2, area.y2);
+				ImGui::PushID((i + 1) * 100);
+				bool b = ImGui::Button(" - ");
+				ImGui::PopID();
+
+				if (b) {
+					areas.erase(areas.begin() + i);
+					i--;
+					continue;
+				}
+
+				ImGui::SameLine();
+
+				ImVec4 color = ImGui::ColorConvertU32ToFloat4(area_colors[i % IM_ARRAYSIZE(area_colors)]);
+				color.w = 1;
+				ImGui::TextColored(color,
+								   "S%s: (%d,%d), (%dx%d)",
+								   subscript, area.x, area.y, area.w, area.h);
 			}
 
 			ImGui::Text(u8"МДНФ:");
@@ -511,19 +719,27 @@ void MinBoolFunc::ImGuiStep() {
 				for (int i = 0; i < areas.size(); i++) {
 					const Area& area = areas[i];
 
-					char cx = row_header[area.x1][0];
-					char cy = row_header[area.x1][1];
-					char cz = col_header[area.y1][0];
+					char v1 = row_header2[area.x][0]; // x
+					char v2 = row_header2[area.x][1]; // y
+					char v3 = row_header2[area.x][2];
+					char v4 = col_header2[area.y][0]; // z
+					char v5 = col_header2[area.y][1];
 
-					bool x_changes = false;
-					bool y_changes = false;
-					bool z_changes = false;
+					bool v1_changes = false;
+					bool v2_changes = false;
+					bool v3_changes = false;
+					bool v4_changes = false;
+					bool v5_changes = false;
 
-					for (int y = area.y1; y <= area.y2; y++) {
-						for (int x = area.x1; x <= area.x2; x++) {
-							if (row_header[x][0] != cx) x_changes = true;
-							if (row_header[x][1] != cy) y_changes = true;
-							if (col_header[y][0] != cz) z_changes = true;
+					for (int _y = area.y; _y < area.y + area.h; _y++) {
+						int y = wrap(_y, col_header2.size());
+						for (int _x = area.x; _x < area.x + area.w; _x++) {
+							int x = wrap(_x, row_header2.size());
+							if (row_header2[x][0] != v1) v1_changes = true;
+							if (row_header2[x][1] != v2) v2_changes = true;
+							if (row_header2[x][2] != v3) v3_changes = true;
+							if (col_header2[y][0] != v4) v4_changes = true;
+							if (col_header2[y][1] != v5) v5_changes = true;
 						}
 					}
 
@@ -532,46 +748,102 @@ void MinBoolFunc::ImGuiStep() {
 						result_unicode += u8" ∨ ";
 					}
 
+					bool x_changes[5] = {};
+					char x[5] = {};
+
+					switch (variable_count) {
+						case 2: {
+							x_changes[0] = v1_changes;
+							x_changes[1] = v4_changes;
+							x[0] = v1;
+							x[1] = v4;
+							break;
+						}
+						case 3: {
+							x_changes[0] = v1_changes;
+							x_changes[1] = v2_changes;
+							x_changes[2] = v4_changes;
+							x[0] = v1;
+							x[1] = v2;
+							x[2] = v4;
+							break;
+						}
+						case 4: {
+							x_changes[0] = v1_changes;
+							x_changes[1] = v2_changes;
+							x_changes[2] = v4_changes;
+							x_changes[3] = v5_changes;
+							x[0] = v1;
+							x[1] = v2;
+							x[2] = v4;
+							x[3] = v5;
+							break;
+						}
+						case 5: {
+							x_changes[0] = v1_changes;
+							x_changes[1] = v2_changes;
+							x_changes[2] = v3_changes;
+							x_changes[3] = v4_changes;
+							x_changes[4] = v5_changes;
+							x[0] = v1;
+							x[1] = v2;
+							x[2] = v3;
+							x[3] = v4;
+							x[4] = v5;
+							break;
+						}
+					}
+
 					result_lua += "(";
 					result_unicode += "(";
 
-					if (!x_changes) {
-						if (cx == '0') {
-							result_lua += "not(x)";
-							result_unicode += u8"¬x";
-						} else if (cx == '1') {
-							result_lua += "x";
-							result_unicode += "x";
-						}
+					bool needdelim = false;
 
-						if (!y_changes || !z_changes) {
-							result_lua += " and ";
-							result_unicode += u8" ∧ ";
-						}
-					}
+					for (int i = 0; i < variable_count; i++) {
+						if (!x_changes[i]) {
+							if (needdelim) {
+								result_lua += " and ";
+								result_unicode += u8" ∧ ";
 
-					if (!y_changes) {
-						if (cy == '0') {
-							result_lua += "not(y)";
-							result_unicode += u8"¬y";
-						} else if (cy == '1') {
-							result_lua += "y";
-							result_unicode += "y";
-						}
+								needdelim = false;
+							}
 
-						if (!z_changes) {
-							result_lua += " and ";
-							result_unicode += u8" ∧ ";
-						}
-					}
+							if (x[i] == '0') {
+								{
+									// char buf[] = {'n', 'o', 't', '(', 'x', '0' + (i + 1) % 10, ')', 0};
+									// result_lua += buf;
 
-					if (!z_changes) {
-						if (cz == '0') {
-							result_lua += "not(z)";
-							result_unicode += u8"¬z";
-						} else if (cz == '1') {
-							result_lua += "z";
-							result_unicode += "z";
+									result_lua += "not(";
+									result_lua += var_names_lua[i];
+									result_lua += ")";
+								}
+
+								{
+									// char buf[] = {0xC2, 0xAC, 'x', 0xE2, 0x82, 0x80 + (i + 1) % 10, 0}; // U+00AC U+2080
+									// result_unicode += buf;
+
+									result_unicode += u8"¬";
+									result_unicode += var_names_unicode[i];
+								}
+
+								needdelim = true;
+							} else if (x[i] == '1') {
+								{
+									// char buf[] = {'x', '0' + (i + 1) % 10, 0};
+									// result_lua += buf;
+
+									result_lua += var_names_lua[i];
+								}
+
+								{
+									// char buf[] = {'x', 0xE2, 0x82, 0x80 + (i + 1) % 10, 0}; // U+2080
+									// result_unicode += buf;
+
+									result_unicode += var_names_unicode[i];
+								}
+
+								needdelim = true;
+							}
 						}
 					}
 
@@ -600,10 +872,28 @@ void MinBoolFunc::ImGuiStep() {
 			ImGui::PopFont();
 			ImGui::PopTextWrapPos();
 
+			if (ImGui::BeginPopupContextItem("result_unicode_context")) {
+				if (ImGui::Button(u8"Копировать")) {
+					ImGui::SetClipboardText(result_unicode.c_str());
+				}
+
+				ImGui::EndPopup();
+			}
+
+			// printf("result_lua capacity: %zu\n", result_lua.capacity());
+			// printf("result_unicode capacity: %zu\n", result_unicode.capacity());
+
 		}
 
 
 	l_window_end:;
+
+#ifdef __ANDROID__
+		{
+			ImVec2 mouse_delta = ImGui::GetIO().MouseDelta;
+			ScrollWhenDraggingOnVoid(ImVec2(0.0f, -mouse_delta.y), ImGuiMouseButton_Left);
+		}
+#endif
 
 	}
 	ImGui::End();
