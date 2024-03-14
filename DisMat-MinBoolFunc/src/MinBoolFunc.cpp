@@ -1,58 +1,136 @@
 ﻿#include "MinBoolFunc.h"
 
-#include "imgui_internal.h"
-
 extern "C" {
 #include "lauxlib.h"
 #include "lualib.h"
 }
 
-#ifdef __ANDROID__
-#define strncpy_s(dest, src, count) strncpy(dest, src, count)
-#define _snprintf_s(buf, count, fmt, ...) snprintf(buf, count, fmt, __VA_ARGS__)
-#endif
-
 static const char* const formula_hint[] = {
 	"",
 
-	"function f(x)\n"
-	"\treturn x\n"
-	"end\n",
+R"(function f(x)
+	return not x
+end
+)",
 
-	"function f(x, y)\n"
-	"\treturn x and y\n"
-	"end\n",
+R"(function f(x, y)
+	return sheffer(x, y)
+end
+)",
 
-	"function f(x, y, z)\n"
-	"\treturn x and y and z\n"
-	"end\n",
+R"(function f(x, y, z)
+	return impl(xor(x, y), z)
+end
+)",
 
-	"function f(x1, x2, x3, x4)\n"
-	"\treturn x1 and x2 and x3 and x4\n"
-	"end\n",
+R"(function f(x1, x2, x3, x4)
+	return peirce(x1, x2) or xor(x3, x4)
+end
+)",
 
-	"function f(x1, x2, x3, x4, x5)\n"
-	"\treturn x1 and x2 and x3 and x4 and x5\n"
-	"end\n",
+R"(function f(x1, x2, x3, x4, x5)
+	return sheffer(x1, x2) and xor(impl(x3, x4), x5)
+end
+)",
+
 };
 
-static const char* const formula_default =
-"local t = {\n"
-"\t[\"000\"] = 1,\n"
-"\t[\"001\"] = 1,\n"
-"\t[\"010\"] = 1,\n"
-"\t[\"011\"] = 0,\n"
-"\t[\"100\"] = 1,\n"
-"\t[\"101\"] = 1,\n"
-"\t[\"110\"] = 0,\n"
-"\t[\"111\"] = 0,\n"
-"}\n"
-"function f(x, y, z)\n"
-"\tx = x and \"1\" or \"0\"\n"
-"\ty = y and \"1\" or \"0\"\n"
-"\tz = z and \"1\" or \"0\"\n"
-"\treturn t[x .. y .. z] == 1\n"
-"end\n";
+static const char* const formula_examples[] = {
+R"(local str = "11101100"
+function f(x, y, z)
+	return fromstr(str, x, y, z)
+end
+)",
+
+R"(local t = {1,1,1,0,1,1,0,0}
+function f(x, y, z)
+	return fromtable(t, x, y, z)
+end
+)",
+
+R"(local t = {
+	["000"] = 1,
+	["001"] = 1,
+	["010"] = 1,
+	["011"] = 0,
+	["100"] = 1,
+	["101"] = 1,
+	["110"] = 0,
+	["111"] = 0,
+}
+function f(x, y, z)
+	x = x and "1" or "0"
+	y = y and "1" or "0"
+	z = z and "1" or "0"
+	return t[x .. y .. z] == 1
+end
+)",
+
+R"(local str = "10100111101000001001100100010001"
+function f(x1, x2, x3, x4, x5)
+	return fromstr(str, x1, x2, x3, x4, x5)
+end
+)",
+
+R"(function f(x, y)
+	return sheffer(x, y)
+end
+)",
+
+R"(function f(x, y)
+	return peirce(x, y)
+end
+)",
+
+R"(function f(x, y)
+	return impl(x, y)
+end
+)",
+
+R"(function f(x, y)
+	return xor(x, y)
+end
+)",
+
+};
+
+static const char* const lua_std_code =
+R"(function fromstr(s, ...)
+	local arg = {...}
+	local index = 0
+	for i = 1, #arg do
+		index = index * 2
+		index = index + (arg[i] and 1 or 0)
+	end
+	return string.sub(s, index+1, index+1)=="1"
+end
+
+function fromtable(t, ...)
+	local arg = {...}
+	local index = 0
+	for i = 1, #arg do
+		index = index * 2
+		index = index + (arg[i] and 1 or 0)
+	end
+	return t[index+1]==1
+end
+
+function sheffer(x, y)
+	return not(x and y)
+end
+
+function peirce(x, y)
+	return not(x or y)
+end
+
+function impl(x, y)
+	return not(x) or y
+end
+
+function xor(x, y)
+	return x ~= y
+end
+)";
 
 /*
 void* operator new(size_t size) {
@@ -125,8 +203,11 @@ void MinBoolFunc::Init() {
 
 	ImGuiIO& io = ImGui::GetIO();
 
+	ImGuiStyle& style = ImGui::GetStyle();
+	// style.SelectableTextAlign = {0.5, 0};
+
 #ifdef __ANDROID__
-	ImGui::GetStyle().ScaleAllSizes(2);
+	style.ScaleAllSizes(2);
 	io.FontGlobalScale = 2;
 #endif
 
@@ -209,12 +290,12 @@ void MinBoolFunc::Init() {
 
 	io.IniFilename = nullptr;
 
-	strncpy_s(formula, formula_default, sizeof(formula) - 1);
+	ImStrncpy(formula, formula_examples[0], sizeof(formula));
 
 	L = luaL_newstate();
 	luaL_openlibs(L);
 
-	CompileScript();
+	SetVariableCount(3);
 }
 
 void MinBoolFunc::Quit() {
@@ -255,8 +336,10 @@ void MinBoolFunc::ImGuiStep() {
 	{
 		ImGuiIO& io = ImGui::GetIO();
 
+#ifndef SHOW_IMGUI_DEMO
 		ImGui::SetNextWindowPos({});
 		ImGui::SetNextWindowSize(io.DisplaySize);
+#endif
 	}
 
 	if (ImGui::Begin(u8"Минимизация булевых функций", nullptr,
@@ -264,7 +347,9 @@ void MinBoolFunc::ImGuiStep() {
 					 | ImGuiWindowFlags_NoSavedSettings)) {
 
 		ImGuiTableFlags table_flags = (ImGuiTableFlags_Borders
-									   | ImGuiTableFlags_RowBg);
+									   | ImGuiTableFlags_RowBg
+									   /* | ImGuiTableFlags_SizingFixedSame */
+									   );
 
 		// 
 		// Выбор кол-ва переменных
@@ -281,13 +366,11 @@ void MinBoolFunc::ImGuiStep() {
 					char label[] = {(char)('0' + i), 0};
 
 					if (ImGui::Selectable(label)) {
-						variable_count = i;
-
 						if (formula[0] == 0) {
-							strncpy_s(formula, formula_hint[variable_count], sizeof(formula) - 1);
+							ImStrncpy(formula, formula_hint[i], sizeof(formula));
 						}
 
-						CompileScript();
+						SetVariableCount(i);
 					}
 
 					if (i == variable_count) {
@@ -296,6 +379,45 @@ void MinBoolFunc::ImGuiStep() {
 				}
 
 				ImGui::EndCombo();
+			}
+
+			ImGui::SameLine();
+			if (ImGui::Button(u8"Примеры")) {
+				ImGui::OpenPopup("example_context");
+			}
+
+			if (ImGui::BeginPopupContextItem("example_context")) {
+				if (ImGui::Button(u8"Вектор функции с тремя переменными")) {
+					ImStrncpy(formula, formula_examples[0], sizeof(formula));
+					SetVariableCount(3);
+				}
+
+				if (ImGui::Button(u8"Вектор функции с пятью переменными")) {
+					ImStrncpy(formula, formula_examples[3], sizeof(formula));
+					SetVariableCount(5);
+				}
+
+				if (ImGui::Button(u8"Штрих Шеффера")) {
+					ImStrncpy(formula, formula_examples[4], sizeof(formula));
+					SetVariableCount(2);
+				}
+
+				if (ImGui::Button(u8"Стрелка Пирса")) {
+					ImStrncpy(formula, formula_examples[5], sizeof(formula));
+					SetVariableCount(2);
+				}
+
+				if (ImGui::Button(u8"Импликация")) {
+					ImStrncpy(formula, formula_examples[6], sizeof(formula));
+					SetVariableCount(2);
+				}
+
+				if (ImGui::Button(u8"Сложение по модулю 2")) {
+					ImStrncpy(formula, formula_examples[7], sizeof(formula));
+					SetVariableCount(2);
+				}
+
+				ImGui::EndPopup();
 			}
 		}
 
@@ -334,9 +456,7 @@ void MinBoolFunc::ImGuiStep() {
 			// header
 			{
 				for (int i = 0; i < variable_count; i++) {
-					char label[] = {'x', (char)0xE2, (char)0x82, (char)(0x80 + (i + 1)), 0}; // U+2080
-
-					ImGui::TableSetupColumn(label);
+					ImGui::TableSetupColumn(var_names_unicode[i]);
 				}
 
 				ImGui::TableSetupColumn("f");
@@ -375,98 +495,8 @@ void MinBoolFunc::ImGuiStep() {
 		// Карта Карно
 		// 
 		{
-			static std::vector<const char*> row_header;
-			static std::vector<const char*> col_header;
-			static std::vector<const char*> row_header2;
-			static std::vector<const char*> col_header2;
-			static std::vector<bool> cells;
-			const char* cell_header = "?";
-			static std::vector<const char*> var_names_lua;
-			static std::vector<const char*> var_names_unicode;
-
-			switch (variable_count) {
-				case 2: {
-					row_header = {"0", "1"}; // x
-					col_header = {"0", "1"}; // y
-					cells = {
-						truth_table[0b00], truth_table[0b10],
-						truth_table[0b01], truth_table[0b11],
-					};
-					cell_header = "y\\x";
-					row_header2 = {"0..", "1.."};
-					col_header2 = {"0..", "1.."};
-					break;
-				}
-				case 3: {
-					row_header = {"00", "01", "11", "10"}; // xy
-					col_header = {"0", "1"}; // z
-					cells = {
-						truth_table[0b000], truth_table[0b010], truth_table[0b110], truth_table[0b100],
-						truth_table[0b001], truth_table[0b011], truth_table[0b111], truth_table[0b101],
-					};
-					cell_header = "z\\xy";
-					row_header2 = {"00.", "01.", "11.", "10."};
-					col_header2 = {"0..", "1.."};
-					break;
-				}
-				case 4: {
-					row_header = {"00", "01", "11", "10"}; // x1 x2
-					col_header = {"00", "01", "11", "10"}; // x3 x4
-					cells = {
-						truth_table[0b0000], truth_table[0b0100], truth_table[0b1100], truth_table[0b1000],
-						truth_table[0b0001], truth_table[0b0101], truth_table[0b1101], truth_table[0b1001],
-						truth_table[0b0011], truth_table[0b0111], truth_table[0b1111], truth_table[0b1011],
-						truth_table[0b0010], truth_table[0b0110], truth_table[0b1110], truth_table[0b1010],
-					};
-					cell_header = u8"x₃x₄\\x₁x₂";
-					row_header2 = {"00.", "01.", "11.", "10."};
-					col_header2 = {"00.", "01.", "11.", "10."};
-					break;
-				}
-				case 5: {
-					row_header = {"000", "001", "011", "010", "110", "111", "101", "100"}; // x1 x2 x3
-					col_header = {"00", "01", "11", "10"}; // x4 x5
-					cells = {
-						truth_table[0b00000], truth_table[0b00100], truth_table[0b01100], truth_table[0b01000], truth_table[0b11000], truth_table[0b11100], truth_table[0b10100], truth_table[0b10000],
-						truth_table[0b00001], truth_table[0b00101], truth_table[0b01101], truth_table[0b01001], truth_table[0b11001], truth_table[0b11101], truth_table[0b10101], truth_table[0b10001],
-						truth_table[0b00011], truth_table[0b00111], truth_table[0b01111], truth_table[0b01011], truth_table[0b11011], truth_table[0b11111], truth_table[0b10111], truth_table[0b10011],
-						truth_table[0b00010], truth_table[0b00110], truth_table[0b01110], truth_table[0b01010], truth_table[0b11010], truth_table[0b11110], truth_table[0b10110], truth_table[0b10010],
-					};
-					cell_header = u8"x₄x₅\\x₁x₂x₃";
-					row_header2 = {"000", "001", "011", "010", "110", "111", "101", "100"};
-					col_header2 = {"00.", "01.", "11.", "10."};
-					break;
-				}
-			}
-
-			switch (variable_count) {
-				case 2:
-				case 3: {
-					var_names_lua = {"x", "y", "z", "w"};
-					var_names_unicode = {"x", "y", "z", "w"};
-					break;
-				}
-
-				default:
-				case 4:
-				case 5: {
-					var_names_lua = {"x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9"};
-					var_names_unicode = {u8"x₁", u8"x₂", u8"x₃", u8"x₄", u8"x₅", u8"x₆", u8"x₇", u8"x₈", u8"x₉"};
-					break;
-				}
-			}
-
-			static std::vector<std::vector<ImRect>> cell_rects;
-			static std::vector<std::vector<ImRect>> cell_rects_abs;
-			static std::vector<std::vector<ImGuiID>> cell_ids_abs;
-
-			cell_rects.resize(col_header.size());
-			cell_rects_abs.resize(col_header.size());
-			cell_ids_abs.resize(col_header.size());
-
-			for (auto& v : cell_rects) v.resize(row_header.size());
-			for (auto& v : cell_rects_abs) v.resize(row_header.size());
-			for (auto& v : cell_ids_abs) v.resize(row_header.size());
+			ImGui::PushStyleColor(ImGuiCol_HeaderActive, IM_COL32(0, 0, 0, 0));
+			ImGui::PushStyleColor(ImGuiCol_HeaderHovered, IM_COL32(0, 0, 0, 0));
 
 			ImGui::Text(u8"Карта Карно");
 
@@ -486,21 +516,81 @@ void MinBoolFunc::ImGuiStep() {
 				ImGui::SameLine();
 				if (ImGui::Button(u8"◀")) {
 					karnaugh_xoff++;
-					karnaugh_xoff = wrap(karnaugh_xoff, row_header.size());
+					karnaugh_xoff = wrap(karnaugh_xoff, (variable_count == 5) ? 4 : row_header.size());
 				}
 
 				ImGui::SameLine();
 				if (ImGui::Button(u8"▶")) {
 					karnaugh_xoff--;
-					karnaugh_xoff = wrap(karnaugh_xoff, row_header.size());
+					karnaugh_xoff = wrap(karnaugh_xoff, (variable_count == 5) ? 4 : row_header.size());
 				}
 			}
 			ImGui::PopFont();
 
-			if (ImGui::BeginTable("Karnaugh_map", row_header.size() + 1, table_flags)) {
+			ImVec2 line_p1 = {};
+			ImVec2 line_p2 = {};
+
+			int column_count = row_header.size() + 1;
+			float table_width = 90 * column_count;
+			if (ImGui::BeginTable("Karnaugh_map", column_count, table_flags, {table_width, 0})) {
+
+				float row_height = ImGui::GetTextLineHeight() * 1.5f;
 
 				// header
-				{
+				if (variable_count == 5) {
+					{
+						ImGui::TableNextRow(0, row_height);
+
+						ImGui::TableNextColumn();
+						ImGui::Text(u8"x₃");
+
+						ImGui::TableNextColumn();
+						ImGui::Text("0");
+
+						ImGui::TableNextColumn();
+
+						ImGui::TableNextColumn();
+
+						ImGui::TableNextColumn();
+
+						ImGui::TableNextColumn();
+
+						line_p1.x = ImGui::GetCursorScreenPos().x - ImGui::GetStyle().CellPadding.x;
+						line_p1.y = ImGui::GetCursorScreenPos().y - ImGui::GetStyle().CellPadding.y;
+
+						ImGui::Text("1");
+					}
+
+					{
+						ImGui::TableNextRow(0, row_height);
+
+						ImGui::TableNextColumn();
+						ImGui::Text(u8"x₁x₂\\x₃x₄");
+
+						{
+							ImVec2 cursor = ImGui::GetCursorScreenPos();
+							// ImGui::GetWindowDrawList()->AddRect(cursor, {cursor.x + 10, cursor.y + 10}, COLOR_BLUE);
+
+							ImVec2 content;
+							content.x = ImGui::GetContentRegionAvail().x;
+							content.y = row_height - 2.0f * ImGui::GetStyle().CellPadding.y;
+
+							// ImGui::GetWindowDrawList()->AddRect(cursor, {cursor.x + content.x, cursor.y + content.y}, COLOR_BLUE);
+
+						}
+
+						for (int i = 0; i < 2; i++) {
+							const char* labels[] = {"00", "01", "11", "10"};
+
+							for (int i = 0; i < 4; i++) {
+								const char* label = labels[wrap(i + karnaugh_xoff, 4)];
+
+								ImGui::TableNextColumn();
+								ImGui::TextUnformatted(label);
+							}
+						}
+					}
+				} else {
 					ImGui::TableSetupColumn(cell_header);
 
 					for (int _i = 0; _i < row_header.size(); _i++) {
@@ -516,27 +606,44 @@ void MinBoolFunc::ImGuiStep() {
 				for (int _i = 0; _i < col_header.size(); _i++) {
 					int i = wrap(_i + karnaugh_yoff, col_header.size());
 
-					ImGui::TableNextRow();
+					ImGui::TableNextRow(0, row_height);
 
 					ImGui::TableNextColumn();
 					ImGui::TextUnformatted(col_header[i]);
 
 					for (int _j = 0; _j < row_header.size(); _j++) {
-						int j = wrap(_j + karnaugh_xoff, row_header.size());
+						int j = 0;
+						if (variable_count == 5) {
+							if (_j >= 4) {
+								j = 4 + wrap(_j - 4 + karnaugh_xoff, 4);
+							} else {
+								j = wrap(_j + karnaugh_xoff, 4);
+							}
+						} else {
+							j = wrap(_j + karnaugh_xoff, row_header.size());
+						}
 
 						ImGui::TableNextColumn();
+
+						if (_i == 3 && _j == 4) {
+							line_p2.x = ImGui::GetCursorScreenPos().x - ImGui::GetStyle().CellPadding.x;
+							line_p2.y = row_height + ImGui::GetCursorScreenPos().y + ImGui::GetStyle().CellPadding.y;
+						}
+
 						int w = row_header.size();
 						if (cells[j + i * w]) {
 							ImGui::PushID((i + 1) * 10000 + j);
-							ImGui::Selectable("1");
+							ImGui::Selectable("1", false, 0, {0, row_height});
 							ImGui::PopID();
 
 							cell_rects[i][j] = {ImGui::GetItemRectMin(), ImGui::GetItemRectMax()};
 							cell_rects_abs[_i][_j] = {ImGui::GetItemRectMin(), ImGui::GetItemRectMax()};
+							cell_ids[i][j] = ImGui::GetItemID();
 							cell_ids_abs[_i][_j] = ImGui::GetItemID();
 						} else {
 							cell_rects[i][j] = {};
 							cell_rects_abs[_i][_j] = {};
+							cell_ids[i][j] = 0;
 							cell_ids_abs[_i][_j] = 0;
 						}
 					}
@@ -545,16 +652,21 @@ void MinBoolFunc::ImGuiStep() {
 				ImGui::EndTable();
 			}
 
-			ImU32 area_colors[] = {
-				// IM_COL32(0xFF, 0x00, 0x00, 0x40),
-				// IM_COL32(0xFF, 0x92, 0x00, 0x40),
-				// IM_COL32(0x42, 0xD5, 0x2B, 0x40),
-				// IM_COL32(0x24, 0xE0, 0xD4, 0x40),
-				// IM_COL32(0x00, 0x1B, 0xFF, 0x40),
-				// IM_COL32(0xFF, 0x00, 0xFE, 0x40),
+			if (variable_count == 5) {
+				ImDrawList* list = ImGui::GetWindowDrawList();
+				list->AddLine(line_p1, line_p2, COLOR_RED, 2);
+			}
 
-				IM_COL32(0xFF, 0x00, 0x00, 0x40),
-				IM_COL32(0x00, 0x00, 0xFF, 0x40),
+			ImColor area_colors[] = {
+				// {0xFF, 0x00, 0x00, 0x40},
+				// {0xFF, 0x92, 0x00, 0x40},
+				// {0x42, 0xD5, 0x2B, 0x40},
+				// {0x24, 0xE0, 0xD4, 0x40},
+				// {0x00, 0x1B, 0xFF, 0x40},
+				// {0xFF, 0x00, 0xFE, 0x40},
+
+				{0xFF, 0x00, 0x00, 0x40},
+				{0x00, 0x00, 0xFF, 0x40},
 			};
 
 			// areas = {
@@ -562,21 +674,25 @@ void MinBoolFunc::ImGuiStep() {
 			// 	{0, 0, 2, 1},
 			// };
 
+			int area_label_x = 0;
 			for (int i = 0; i < areas.size(); i++) {
 				const Area& area = areas[i];
 
-				ImDrawList* list = ImGui::GetWindowDrawList();
+				ImColor color = area_colors[i % IM_ARRAYSIZE(area_colors)];
 
-				for (int _y = area.y; _y < area.y + area.h; _y++) {
-					int y = wrap(_y, col_header.size());
+				DrawArea(area, color, i, area_label_x);
 
-					for (int _x = area.x; _x < area.x + area.w; _x++) {
-						int x = wrap(_x, row_header.size());
+				if (variable_count == 5) {
+					Area area2 = area;
+					if (area.x < 4) {
+						area2.x = wrap(area.x + 4, row_header.size());
+					}
+					if (area.x >= 4) {
+						area2.x = wrap(area.x - 4, row_header.size());
+					}
 
-						ImRect rect = cell_rects[y][x];
-
-						ImU32 color = area_colors[i % IM_ARRAYSIZE(area_colors)];
-						list->AddRectFilled(rect.Min, rect.Max, color);
+					if (IsAreaValid(area2)) {
+						DrawArea(area2, color, i, area_label_x);
 					}
 				}
 			}
@@ -609,10 +725,27 @@ void MinBoolFunc::ImGuiStep() {
 				} else {
 					if (areas.size() < 99) {
 						Area area = {};
+
+						// must be in left or right area
+						if (drag_x1 < 4) {
+							if (drag_x2 >= 4) {
+								goto l_area_add_out;
+							}
+						}
+						if (drag_x1 >= 4) {
+							if (drag_x2 < 4) {
+								goto l_area_add_out;
+							}
+						}
+
 						area.x = ImMin(drag_x1, drag_x2) + karnaugh_xoff;
 						area.y = ImMin(drag_y1, drag_y2) + karnaugh_yoff;
 
-						area.x = wrap(area.x, row_header.size());
+						if (drag_x1 >= 4) {
+							area.x = 4 + wrap(area.x - 4, 4);
+						} else {
+							area.x = wrap(area.x, 4);
+						}
 						area.y = wrap(area.y, col_header.size());
 
 						area.w = ImAbs(drag_x2 - drag_x1) + 1;
@@ -626,24 +759,12 @@ void MinBoolFunc::ImGuiStep() {
 							}
 						}
 
-						int S = area.w * area.h;
-						if (!ImIsPowerOfTwo(S)) {
+						if (!IsAreaValid(area)) {
 							goto l_area_add_out;
 						}
 
-						// must contain only 1's
-						for (int _y = area.y; _y < area.y + area.h; _y++) {
-							int y = wrap(_y, col_header.size());
-							for (int _x = area.x; _x < area.x + area.w; _x++) {
-								int x = wrap(_x, row_header.size());
-								int w = row_header.size();
-								if (!cells[x + y * w]) {
-									goto l_area_add_out;
-								}
-							}
-						}
-
 						areas.push_back(area);
+						BuildResult();
 					}
 
 				l_area_add_out:
@@ -662,6 +783,12 @@ void MinBoolFunc::ImGuiStep() {
 							drag_x2 = drag_x1;
 							drag_y2 = drag_y1;
 							goto l_break2;
+						}
+
+						if (cell_ids_abs[i][j] != 0 && cell_ids_abs[i][j] == ImGui::GetHoveredID()) {
+							ImDrawList* list = ImGui::GetWindowDrawList();
+							ImRect rect = cell_rects_abs[i][j];
+							list->AddRect(rect.Min, rect.Max, COLOR_RED, 0, 0, 2);
 						}
 					}
 				}
@@ -699,6 +826,7 @@ void MinBoolFunc::ImGuiStep() {
 				if (b) {
 					areas.erase(areas.begin() + i);
 					i--;
+					BuildResult();
 					continue;
 				}
 
@@ -715,15 +843,16 @@ void MinBoolFunc::ImGuiStep() {
 			{
 				result_lua.clear();
 				result_unicode.clear();
+				result_rank = 0;
 
 				for (int i = 0; i < areas.size(); i++) {
 					const Area& area = areas[i];
 
-					char v1 = row_header2[area.x][0]; // x
-					char v2 = row_header2[area.x][1]; // y
-					char v3 = row_header2[area.x][2];
-					char v4 = col_header2[area.y][0]; // z
-					char v5 = col_header2[area.y][1];
+					char v1 = row_header2[area.x][0]; // y y x3 x3
+					char v2 = row_header2[area.x][1]; //   z x4 x4
+					char v3 = row_header2[area.x][2]; //        x5
+					char v4 = col_header2[area.y][0]; // x x x1 x1
+					char v5 = col_header2[area.y][1]; //     x2 x2
 
 					bool v1_changes = false;
 					bool v2_changes = false;
@@ -734,12 +863,58 @@ void MinBoolFunc::ImGuiStep() {
 					for (int _y = area.y; _y < area.y + area.h; _y++) {
 						int y = wrap(_y, col_header2.size());
 						for (int _x = area.x; _x < area.x + area.w; _x++) {
-							int x = wrap(_x, row_header2.size());
+
+							int x;
+							if (variable_count == 5) {
+								if (area.x >= 4) {
+									x = 4 + wrap(_x - 4, 4);
+								} else {
+									x = wrap(_x, 4);
+								}
+							} else {
+								x = wrap(_x, row_header.size());
+							}
+
 							if (row_header2[x][0] != v1) v1_changes = true;
 							if (row_header2[x][1] != v2) v2_changes = true;
 							if (row_header2[x][2] != v3) v3_changes = true;
 							if (col_header2[y][0] != v4) v4_changes = true;
 							if (col_header2[y][1] != v5) v5_changes = true;
+						}
+					}
+
+					if (variable_count == 5) {
+						Area area2 = area;
+						if (area.x < 4) {
+							area2.x = wrap(area.x + 4, row_header.size());
+						}
+						if (area.x >= 4) {
+							area2.x = wrap(area.x - 4, row_header.size());
+						}
+
+						if (IsAreaValid(area2)) {
+							for (int _y = area2.y; _y < area2.y + area2.h; _y++) {
+								int y = wrap(_y, col_header2.size());
+								for (int _x = area2.x; _x < area2.x + area2.w; _x++) {
+
+									int x;
+									if (variable_count == 5) {
+										if (area2.x >= 4) {
+											x = 4 + wrap(_x - 4, 4);
+										} else {
+											x = wrap(_x, 4);
+										}
+									} else {
+										x = wrap(_x, row_header.size());
+									}
+
+									if (row_header2[x][0] != v1) v1_changes = true;
+									if (row_header2[x][1] != v2) v2_changes = true;
+									if (row_header2[x][2] != v3) v3_changes = true;
+									if (col_header2[y][0] != v4) v4_changes = true;
+									if (col_header2[y][1] != v5) v5_changes = true;
+								}
+							}
 						}
 					}
 
@@ -753,43 +928,43 @@ void MinBoolFunc::ImGuiStep() {
 
 					switch (variable_count) {
 						case 2: {
-							x_changes[0] = v1_changes;
-							x_changes[1] = v4_changes;
-							x[0] = v1;
-							x[1] = v4;
+							x_changes[0] = v4_changes;
+							x_changes[1] = v1_changes;
+							x[0] = v4;
+							x[1] = v1;
 							break;
 						}
 						case 3: {
-							x_changes[0] = v1_changes;
-							x_changes[1] = v2_changes;
-							x_changes[2] = v4_changes;
-							x[0] = v1;
-							x[1] = v2;
-							x[2] = v4;
+							x_changes[0] = v4_changes;
+							x_changes[1] = v1_changes;
+							x_changes[2] = v2_changes;
+							x[0] = v4;
+							x[1] = v1;
+							x[2] = v2;
 							break;
 						}
 						case 4: {
-							x_changes[0] = v1_changes;
-							x_changes[1] = v2_changes;
-							x_changes[2] = v4_changes;
-							x_changes[3] = v5_changes;
-							x[0] = v1;
-							x[1] = v2;
-							x[2] = v4;
-							x[3] = v5;
+							x_changes[0] = v4_changes;
+							x_changes[1] = v5_changes;
+							x_changes[2] = v1_changes;
+							x_changes[3] = v2_changes;
+							x[0] = v4;
+							x[1] = v5;
+							x[2] = v1;
+							x[3] = v2;
 							break;
 						}
 						case 5: {
-							x_changes[0] = v1_changes;
-							x_changes[1] = v2_changes;
-							x_changes[2] = v3_changes;
-							x_changes[3] = v4_changes;
-							x_changes[4] = v5_changes;
-							x[0] = v1;
-							x[1] = v2;
-							x[2] = v3;
-							x[3] = v4;
-							x[4] = v5;
+							x_changes[0] = v4_changes;
+							x_changes[1] = v5_changes;
+							x_changes[2] = v1_changes;
+							x_changes[3] = v2_changes;
+							x_changes[4] = v3_changes;
+							x[0] = v4;
+							x[1] = v5;
+							x[2] = v1;
+							x[3] = v2;
+							x[4] = v3;
 							break;
 						}
 					}
@@ -844,6 +1019,8 @@ void MinBoolFunc::ImGuiStep() {
 
 								needdelim = true;
 							}
+
+							result_rank++;
 						}
 					}
 
@@ -852,36 +1029,45 @@ void MinBoolFunc::ImGuiStep() {
 				}
 			}
 
-			ImGui::PushTextWrapPos(0);
-			ImGui::PushFont(fnt_mono);
-			ImGui::TextUnformatted(result_lua.c_str());
-			ImGui::PopFont();
-			ImGui::PopTextWrapPos();
+			if (!result_lua.empty()) {
+				ImGui::PushTextWrapPos(0);
+				ImGui::PushFont(fnt_mono);
+				ImGui::TextUnformatted(result_lua.c_str());
+				ImGui::PopFont();
+				ImGui::PopTextWrapPos();
 
-			if (ImGui::BeginPopupContextItem("result_lua_context")) {
-				if (ImGui::Button(u8"Копировать")) {
-					ImGui::SetClipboardText(result_lua.c_str());
+				if (ImGui::BeginPopupContextItem("result_lua_context")) {
+					if (ImGui::Button(u8"Копировать")) {
+						ImGui::SetClipboardText(result_lua.c_str());
+					}
+
+					ImGui::EndPopup();
 				}
-
-				ImGui::EndPopup();
 			}
 
-			ImGui::PushTextWrapPos(0);
-			ImGui::PushFont(fnt_math);
-			ImGui::TextUnformatted(result_unicode.c_str());
-			ImGui::PopFont();
-			ImGui::PopTextWrapPos();
+			if (!result_unicode.empty()) {
+				ImGui::PushTextWrapPos(0);
+				ImGui::PushFont(fnt_math);
+				ImGui::TextUnformatted(result_unicode.c_str());
+				ImGui::PopFont();
+				ImGui::PopTextWrapPos();
 
-			if (ImGui::BeginPopupContextItem("result_unicode_context")) {
-				if (ImGui::Button(u8"Копировать")) {
-					ImGui::SetClipboardText(result_unicode.c_str());
+				if (ImGui::BeginPopupContextItem("result_unicode_context")) {
+					if (ImGui::Button(u8"Копировать")) {
+						ImGui::SetClipboardText(result_unicode.c_str());
+					}
+
+					ImGui::EndPopup();
 				}
-
-				ImGui::EndPopup();
 			}
+
+			ImGui::Text(u8"Ранг: %d", result_rank);
 
 			// printf("result_lua capacity: %zu\n", result_lua.capacity());
 			// printf("result_unicode capacity: %zu\n", result_unicode.capacity());
+
+			ImGui::PopStyleColor();
+			ImGui::PopStyleColor();
 
 		}
 
@@ -905,19 +1091,36 @@ void MinBoolFunc::CompileScript() {
 	dragging = false;
 	drag_id = 0;
 	areas.clear();
+	result_lua.clear();
+	result_unicode.clear();
+	result_rank = 0;
 
 	script_error = true;
 
-	if (luaL_loadstring(L, formula) != LUA_OK) {
+	if (luaL_loadstring(L, lua_std_code) != LUA_OK) {
 		const char* err = lua_tostring(L, -1);
-		strncpy_s(lua_err_msg, err, sizeof(lua_err_msg) - 1);
+		ImStrncpy(lua_err_msg, err, sizeof(lua_err_msg));
 		lua_settop(L, 0);
 		return;
 	}
 
 	if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
 		const char* err = lua_tostring(L, -1);
-		strncpy_s(lua_err_msg, err, sizeof(lua_err_msg) - 1);
+		ImStrncpy(lua_err_msg, err, sizeof(lua_err_msg));
+		lua_settop(L, 0);
+		return;
+	}
+
+	if (luaL_loadstring(L, formula) != LUA_OK) {
+		const char* err = lua_tostring(L, -1);
+		ImStrncpy(lua_err_msg, err, sizeof(lua_err_msg));
+		lua_settop(L, 0);
+		return;
+	}
+
+	if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+		const char* err = lua_tostring(L, -1);
+		ImStrncpy(lua_err_msg, err, sizeof(lua_err_msg));
 		lua_settop(L, 0);
 		return;
 	}
@@ -937,7 +1140,7 @@ void MinBoolFunc::BuildTruthTable() {
 	lua_getglobal(L, "f");
 	if (!lua_isfunction(L, -1)) {
 		const char* tname = lua_typename(L, lua_type(L, -1));
-		_snprintf_s(lua_err_msg, sizeof(lua_err_msg) - 1, u8"Переменная \"f\" не является функцией (%s).", tname);
+		ImFormatString(lua_err_msg, sizeof(lua_err_msg), u8"Переменная \"f\" не является функцией (%s).", tname);
 		lua_settop(L, 0);
 		script_error = true;
 		return;
@@ -954,7 +1157,7 @@ void MinBoolFunc::BuildTruthTable() {
 
 		if (lua_pcall(L, variable_count, 1, 0) != LUA_OK) {
 			const char* err = lua_tostring(L, -1);
-			strncpy_s(lua_err_msg, err, sizeof(lua_err_msg) - 1);
+			ImStrncpy(lua_err_msg, err, sizeof(lua_err_msg));
 			lua_settop(L, 0);
 			script_error = true;
 			return;
@@ -967,4 +1170,210 @@ void MinBoolFunc::BuildTruthTable() {
 	}
 
 	lua_settop(L, 0);
+
+	BuildKarnaughMap();
+}
+
+void MinBoolFunc::SetVariableCount(int _variable_count) {
+	variable_count = _variable_count;
+
+	switch (variable_count) {
+		case 2:
+		case 3: {
+			var_names_lua = {"x", "y", "z", "w"};
+			var_names_unicode = {"x", "y", "z", "w"};
+			break;
+		}
+
+		default:
+		case 4:
+		case 5: {
+			var_names_lua = {"x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9"};
+			var_names_unicode = {u8"x₁", u8"x₂", u8"x₃", u8"x₄", u8"x₅", u8"x₆", u8"x₇", u8"x₈", u8"x₉"};
+			break;
+		}
+	}
+
+	CompileScript();
+}
+
+void MinBoolFunc::BuildKarnaughMap() {
+	switch (variable_count) {
+		case 2: {
+			row_header = {"0", "1"}; // y
+			col_header = {"0", "1"}; // x
+			cells = {
+				truth_table[0b00], truth_table[0b01],
+				truth_table[0b10], truth_table[0b11],
+			};
+			cell_header = "x\\y";
+			row_header2 = {"0..", "1.."};
+			col_header2 = {"0..", "1.."};
+			break;
+		}
+		case 3: {
+			row_header = {"00", "01", "11", "10"}; // yz
+			col_header = {"0", "1"}; // x
+			cells = {
+				truth_table[0b000], truth_table[0b001], truth_table[0b011], truth_table[0b010],
+				truth_table[0b100], truth_table[0b101], truth_table[0b111], truth_table[0b110],
+			};
+			cell_header = "x\\yz";
+			row_header2 = {"00.", "01.", "11.", "10."};
+			col_header2 = {"0..", "1.."};
+			break;
+		}
+		case 4: {
+			row_header = {"00", "01", "11", "10"}; // x3 x4
+			col_header = {"00", "01", "11", "10"}; // x1 x2
+			cells = {
+				truth_table[0b0000], truth_table[0b0001], truth_table[0b0011], truth_table[0b0010],
+				truth_table[0b0100], truth_table[0b0101], truth_table[0b0111], truth_table[0b0110],
+				truth_table[0b1100], truth_table[0b1101], truth_table[0b1111], truth_table[0b1110],
+				truth_table[0b1000], truth_table[0b1001], truth_table[0b1011], truth_table[0b1010],
+			};
+			cell_header = u8"x₁x₂\\x₃x₄";
+			row_header2 = {"00.", "01.", "11.", "10."};
+			col_header2 = {"00.", "01.", "11.", "10."};
+			break;
+		}
+		case 5: {
+			// 
+			// x1 x2 \ x3 x4 x5
+			// 
+			// row_header = {"000", "001", "011", "010", "110", "111", "101", "100"}; // x3 x4 x5
+			// col_header = {"00", "01", "11", "10"}; // x1 x2
+			// cells = {
+			// 	truth_table[0b00000], truth_table[0b00001], truth_table[0b00011], truth_table[0b00010], truth_table[0b00110], truth_table[0b00111], truth_table[0b00101], truth_table[0b00100],
+			// 	truth_table[0b01000], truth_table[0b01001], truth_table[0b01011], truth_table[0b01010], truth_table[0b01110], truth_table[0b01111], truth_table[0b01101], truth_table[0b01100],
+			// 	truth_table[0b11000], truth_table[0b11001], truth_table[0b11011], truth_table[0b11010], truth_table[0b11110], truth_table[0b11111], truth_table[0b11101], truth_table[0b11100],
+			// 	truth_table[0b10000], truth_table[0b10001], truth_table[0b10011], truth_table[0b10010], truth_table[0b10110], truth_table[0b10111], truth_table[0b10101], truth_table[0b10100],
+			// };
+			// cell_header = u8"x₁x₂\\x₃x₄x₅";
+			// row_header2 = {"000", "001", "011", "010", "110", "111", "101", "100"};
+			// col_header2 = {"00.", "01.", "11.", "10."};
+
+			// 
+			// x3
+			// x1 x2 \ x3 x4
+			// 
+			row_header = {"000", "001", "011", "010", "100", "101", "111", "110"}; // x3 x4 x5
+			col_header = {"00", "01", "11", "10"}; // x1 x2
+			cells = {
+				truth_table[0b00000], truth_table[0b00001], truth_table[0b00011], truth_table[0b00010], truth_table[0b00100], truth_table[0b00101], truth_table[0b00111], truth_table[0b00110],
+				truth_table[0b01000], truth_table[0b01001], truth_table[0b01011], truth_table[0b01010], truth_table[0b01100], truth_table[0b01101], truth_table[0b01111], truth_table[0b01110],
+				truth_table[0b11000], truth_table[0b11001], truth_table[0b11011], truth_table[0b11010], truth_table[0b11100], truth_table[0b11101], truth_table[0b11111], truth_table[0b11110],
+				truth_table[0b10000], truth_table[0b10001], truth_table[0b10011], truth_table[0b10010], truth_table[0b10100], truth_table[0b10101], truth_table[0b10111], truth_table[0b10110],
+			};
+			cell_header = "?";
+			row_header2 = {"000", "001", "011", "010", "100", "101", "111", "110"};
+			col_header2 = {"00", "01", "11", "10"};
+			break;
+		}
+	}
+
+	cell_rects.resize(col_header.size());
+	cell_rects_abs.resize(col_header.size());
+	cell_ids.resize(col_header.size());
+	cell_ids_abs.resize(col_header.size());
+
+	for (auto& v : cell_rects) v.resize(row_header.size());
+	for (auto& v : cell_rects_abs) v.resize(row_header.size());
+	for (auto& v : cell_ids) v.resize(row_header.size());
+	for (auto& v : cell_ids_abs) v.resize(row_header.size());
+}
+
+void MinBoolFunc::BuildResult() {
+
+}
+
+bool MinBoolFunc::IsAreaValid(const Area& area) {
+	int S = area.w * area.h;
+	if (!ImIsPowerOfTwo(S)) {
+		return false;
+	}
+
+	// must contain only 1's
+	for (int _y = area.y; _y < area.y + area.h; _y++) {
+		int y = wrap(_y, col_header.size());
+		for (int _x = area.x; _x < area.x + area.w; _x++) {
+
+			int x;
+			if (variable_count == 5) {
+				if (area.x >= 4) {
+					x = 4 + wrap(_x - 4, 4);
+				} else {
+					x = wrap(_x, 4);
+				}
+			} else {
+				x = wrap(_x, row_header.size());
+			}
+
+			int w = row_header.size();
+			if (!cells[x + y * w]) {
+				return false;
+			}
+		}
+	}
+
+	return true;
+}
+
+void MinBoolFunc::DrawArea(const Area& area, ImColor color, int area_index, int& area_label_x) {
+	ImDrawList* list = ImGui::GetWindowDrawList();
+
+	for (int _y = area.y; _y < area.y + area.h; _y++) {
+		int y = wrap(_y, col_header.size());
+
+		for (int _x = area.x; _x < area.x + area.w; _x++) {
+
+			int x;
+			if (variable_count == 5) {
+				if (area.x >= 4) {
+					x = 4 + wrap(_x - 4, 4);
+				} else {
+					x = wrap(_x, 4);
+				}
+			} else {
+				x = wrap(_x, row_header.size());
+			}
+
+			ImRect rect = cell_rects[y][x];
+			ImGuiID id = cell_ids[y][x];
+
+			list->AddRectFilled(rect.Min, rect.Max, color);
+
+			if (id == ImGui::GetHoveredID()) {
+
+				int i = area_index;
+				char subscript[16];
+				if ((i + 1) >= 10) {
+					int j = 0;
+					subscript[j++] = 0xE2; // U+2080
+					subscript[j++] = 0x82;
+					subscript[j++] = 0x80 + (i + 1) / 10;
+					subscript[j++] = 0xE2;
+					subscript[j++] = 0x82;
+					subscript[j++] = 0x80 + (i + 1) % 10;
+					subscript[j++] = 0;
+				} else {
+					int j = 0;
+					subscript[j++] = 0xE2; // U+2080
+					subscript[j++] = 0x82;
+					subscript[j++] = 0x80 + (i + 1) % 10;
+					subscript[j++] = 0;
+				}
+
+				char buf[16];
+				ImFormatString(buf, sizeof(buf), "S%s", subscript);
+				ImU32 color = ImGui::ColorConvertFloat4ToU32(ImGui::GetStyle().Colors[ImGuiCol_Text]);
+				ImVec2 pos = ImGui::GetMousePos();
+				pos.x += area_label_x;
+				pos.y -= 25;
+				ImGui::GetForegroundDrawList()->AddText(pos, color, buf);
+
+				area_label_x += 20;
+			}
+		}
+	}
 }
