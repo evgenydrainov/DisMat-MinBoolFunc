@@ -849,10 +849,10 @@ void MinBoolFunc::ImGuiStep() {
 	l_window_end:;
 
 #ifdef __ANDROID__
-		{
-			ImVec2 mouse_delta = ImGui::GetIO().MouseDelta;
-			ScrollWhenDraggingOnVoid(ImVec2(0.0f, -mouse_delta.y), ImGuiMouseButton_Left);
-		}
+	{
+		ImVec2 mouse_delta = ImGui::GetIO().MouseDelta;
+		ScrollWhenDraggingOnVoid(ImVec2(0.0f, -mouse_delta.y), ImGuiMouseButton_Left);
+	}
 #endif
 
 	}
@@ -1150,11 +1150,11 @@ void MinBoolFunc::BuildResult(const std::vector<Area>& areas, std::string& resul
 
 		switch (variable_count) {
 			case 2: {
-			x_changes[0] = v4_changes;
-			x_changes[1] = v1_changes;
-			x[0] = v4;
-			x[1] = v1;
-			break;
+				x_changes[0] = v4_changes;
+				x_changes[1] = v1_changes;
+				x[0] = v4;
+				x[1] = v1;
+				break;
 			}
 			case 3: {
 				x_changes[0] = v4_changes;
@@ -1437,7 +1437,9 @@ void MinBoolFunc::FindCorrectAnswer() {
 
 			// S = 2
 			areas_to_try.push_back({x, y, 2, 1});
+			if (variable_count >= 3) areas_to_try.push_back({x - 1, y, 2, 1});
 			areas_to_try.push_back({x, y, 1, 2});
+			if (variable_count >= 4) areas_to_try.push_back({x, y - 1, 1, 2});
 
 			// S = 1
 			areas_to_try.push_back({x, y, 1, 1});
