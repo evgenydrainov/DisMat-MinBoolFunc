@@ -42,10 +42,14 @@ struct MinBoolFunc {
 		int h;
 	};
 	std::vector<Area> areas;
+	std::vector<Area> areas2;
 
 	std::string result_lua;
+	std::string result2_lua;
 	std::string result_unicode;
+	std::string result2_unicode;
 	int result_rank = 0;
+	int result2_rank = 0;
 
 	int karnaugh_xoff;
 	int karnaugh_yoff;
@@ -65,6 +69,10 @@ struct MinBoolFunc {
 	std::vector<std::vector<ImGuiID>> cell_ids;
 	std::vector<std::vector<ImGuiID>> cell_ids_abs;
 
+	bool show_correct_answer;
+
+	float dpi_scale;
+
 	ImFont* fnt_main;
 	ImFont* fnt_mono;
 	ImFont* fnt_math;
@@ -78,7 +86,10 @@ struct MinBoolFunc {
 	void BuildTruthTable();
 	void SetVariableCount(int _variable_count);
 	void BuildKarnaughMap();
-	void BuildResult();
+	void BuildResult(const std::vector<Area>& areas, std::string& result_lua, std::string& result_unicode, int& result_rank);
 	bool IsAreaValid(const Area& area);
 	void DrawArea(const Area& area, ImColor color, int area_index, int& area_label_x);
+	void FindCorrectAnswer();
+	void DrawAreas(const std::vector<Area>& areas);
+	void ShowResultInfo(std::vector<Area>& areas, std::string& result_lua, std::string& result_unicode, int& result_rank, bool readonly = false);
 };

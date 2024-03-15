@@ -30,6 +30,12 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 // Main code
 
+static HMONITOR GetPrimaryMonitorHandle()
+{
+	const POINT ptZero = { 0, 0 };
+	return ::MonitorFromPoint(ptZero, MONITOR_DEFAULTTOPRIMARY);
+}
+
 #ifdef NDEBUG
 int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmdshow)
 #else
@@ -41,21 +47,27 @@ int main(int argc, char* argv[])
 	WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"ImGui Example", nullptr };
 	::RegisterClassExW(&wc);
 
-	int monitor_width  = ::GetSystemMetrics(SM_CXSCREEN);
-	int monitor_height = ::GetSystemMetrics(SM_CYSCREEN);
-	int window_width  = 850;
-	int window_height = 950;
+	HMONITOR monitor = GetPrimaryMonitorHandle();
+	MONITORINFO monitor_info = {sizeof(monitor_info)};
+	::GetMonitorInfo(monitor, &monitor_info);
 
-	int window_x = (monitor_width  - window_width)  / 2;
-	int window_y = (monitor_height - window_height) / 2;
+	float dpi_scale = ImGui_ImplWin32_GetDpiScaleForMonitor(monitor);
 
-	if (window_x < 0) window_x = 0;
-	if (window_y < 0) window_y = 0;
+	int work_x = monitor_info.rcWork.left;
+	int work_y = monitor_info.rcWork.top;
+	int work_w = monitor_info.rcWork.right - monitor_info.rcWork.left;
+	int work_h = monitor_info.rcWork.bottom - monitor_info.rcWork.top;
+
+	int window_w = 680 * dpi_scale; // 850;
+	int window_h = work_h * 0.95; // 800 * dpi_scale; // 1000;
+
+	int window_x = work_x + (work_w - window_w) / 2;
+	int window_y = work_y + (work_h - window_h) / 2;
 
 	HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Минимизация булевых функций",
 								WS_OVERLAPPEDWINDOW,
 								window_x, window_y,
-								window_width, window_height,
+								window_w, window_h,
 								nullptr, nullptr, wc.hInstance, nullptr);
 
 	// MessageBoxW(NULL,
@@ -66,7 +78,8 @@ int main(int argc, char* argv[])
 	// Initialize Direct3D
 	if (!CreateDeviceD3D(hwnd))
 	{
-		MessageBoxW(NULL, L"Couldn't create D3D device.", L"Error", 0);
+		::MessageBoxW(NULL, L"Couldn't create D3D device.", L"Error", 0);
+
 		CleanupDeviceD3D();
 		::DestroyWindow(hwnd);
 		::UnregisterClassW(wc.lpszClassName, wc.hInstance);
@@ -98,6 +111,7 @@ int main(int argc, char* argv[])
 	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 	program = {};
+	program.dpi_scale = dpi_scale;
 	program.Init();
 
 	// Main loop
@@ -266,8 +280,8 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			g_ResizeHeight = (UINT)HIWORD(lParam);
 			return 0;
 		case WM_SYSCOMMAND:
-			if ((wParam & 0xfff0) == SC_KEYMENU) // Disable ALT application menu
-				return 0;
+			// if ((wParam & 0xfff0) == SC_KEYMENU) // Disable ALT application menu
+			// 	return 0;
 			break;
 		case WM_DESTROY:
 			::PostQuitMessage(0);

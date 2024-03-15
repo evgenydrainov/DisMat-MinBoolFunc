@@ -72,23 +72,45 @@ function f(x1, x2, x3, x4, x5)
 end
 )",
 
-R"(function f(x, y)
+u8R"(function f(x, y)
 	return sheffer(x, y)
+
+	--[[ Или
+	return not(x and y)
+	--]]
 end
 )",
 
-R"(function f(x, y)
+u8R"(function f(x, y)
 	return peirce(x, y)
+
+	--[[ Или
+	return not(x or y)
+	--]]
 end
 )",
 
-R"(function f(x, y)
+u8R"(function f(x, y)
 	return impl(x, y)
+
+	--[[ Или
+	return not(x) or y
+	--]]
 end
 )",
 
-R"(function f(x, y)
+u8R"(function f(x, y)
 	return xor(x, y)
+
+	--[[ Или
+	return x ~= y
+	--]]
+end
+)",
+
+R"(local str = "00101100001111000010111110000100"
+function f(x1, x2, x3, x4, x5)
+	return fromstr(str, x1, x2, x3, x4, x5)
 end
 )",
 
@@ -131,6 +153,18 @@ function xor(x, y)
 	return x ~= y
 end
 )";
+
+static const ImColor area_colors[] = {
+	// {0xFF, 0x00, 0x00, 0x40},
+	// {0xFF, 0x92, 0x00, 0x40},
+	// {0x42, 0xD5, 0x2B, 0x40},
+	// {0x24, 0xE0, 0xD4, 0x40},
+	// {0x00, 0x1B, 0xFF, 0x40},
+	// {0xFF, 0x00, 0xFE, 0x40},
+
+	{0xFF, 0x00, 0x00, 0x40},
+	{0x00, 0x00, 0xFF, 0x40},
+};
 
 /*
 void* operator new(size_t size) {
@@ -209,17 +243,15 @@ void MinBoolFunc::Init() {
 #ifdef __ANDROID__
 	style.ScaleAllSizes(2);
 	io.FontGlobalScale = 2;
+#else
+	style.ScaleAllSizes(dpi_scale);
 #endif
 
 	{
 		ImVector<ImWchar> fnt_main_ranges;
 		{
 			ImWchar _ranges[] = {
-				0x2000, 0x206F, // General Punctuation (for Overline)
 				0x2070, 0x209F, // Superscripts and Subscripts
-				0x2200, 0x22FF, // Mathematical Operators (for logical and, or)
-				0x25A0, 0x25FF, // Geometric Shapes (for triangle arrows)
-				0x3000, 0x036F, // Combining Diacritical Marks (for Combining Overline)
 				0,
 			};
 
@@ -231,26 +263,35 @@ void MinBoolFunc::Init() {
 			builder.BuildRanges(&fnt_main_ranges);
 		}
 
+		const int FONT_SIZE = 18 * dpi_scale;
+
 #ifdef __ANDROID__
-		fnt_main = AddFontFromFileTTF(io.Fonts, "/system/fonts/Roboto-Regular.ttf", 24, nullptr, fnt_main_ranges.Data);
+		fnt_main = AddFontFromFileTTF(io.Fonts, "/system/fonts/Roboto-Regular.ttf", FONT_SIZE, nullptr, fnt_main_ranges.Data);
 #else
-		fnt_main = AddFontFromFileTTF(io.Fonts, "C:\\Windows\\Fonts\\segoeui.ttf", 24, nullptr, fnt_main_ranges.Data);
+		fnt_main = AddFontFromFileTTF(io.Fonts, "C:\\Windows\\Fonts\\segoeui.ttf", FONT_SIZE, nullptr, fnt_main_ranges.Data);
 #endif
 
 		if (!fnt_main) {
-			fnt_main = AddFontFromFileTTF(io.Fonts, "segoeui.ttf", 24, nullptr, fnt_main_ranges.Data);
+			fnt_main = AddFontFromFileTTF(io.Fonts, "segoeui.ttf", FONT_SIZE, nullptr, fnt_main_ranges.Data);
 		}
 
 		if (!fnt_main) {
-			ImFontConfig config;
-			config.SizePixels = 20;
-			fnt_main = io.Fonts->AddFontDefault(&config);
+			fnt_main = io.Fonts->AddFontDefault();
 		}
 
-		fnt_mono = AddFontFromFileTTF(io.Fonts, "C:\\Windows\\Fonts\\cour.ttf", 24);
+		ImVector<ImWchar> fnt_mono_ranges;
+		{
+			ImFontGlyphRangesBuilder builder;
+			builder.AddRanges(io.Fonts->GetGlyphRangesDefault());
+			builder.AddRanges(io.Fonts->GetGlyphRangesCyrillic());
+
+			builder.BuildRanges(&fnt_mono_ranges);
+		}
+
+		fnt_mono = AddFontFromFileTTF(io.Fonts, "C:\\Windows\\Fonts\\cour.ttf", FONT_SIZE, nullptr, fnt_mono_ranges.Data);
 
 		if (!fnt_mono) {
-			fnt_mono = AddFontFromFileTTF(io.Fonts, "cour.ttf", 24);
+			fnt_mono = AddFontFromFileTTF(io.Fonts, "cour.ttf", FONT_SIZE, nullptr, fnt_mono_ranges.Data);
 		}
 
 		if (!fnt_mono) {
@@ -260,11 +301,9 @@ void MinBoolFunc::Init() {
 		ImVector<ImWchar> fnt_math_ranges;
 		{
 			ImWchar _ranges[] = {
-				0x2000, 0x206F, // General Punctuation (for Overline)
 				0x2070, 0x209F, // Superscripts and Subscripts
 				0x2200, 0x22FF, // Mathematical Operators (for logical and, or)
 				0x25A0, 0x25FF, // Geometric Shapes (for triangle arrows)
-				0x3000, 0x036F, // Combining Diacritical Marks (for Combining Overline)
 				0,
 			};
 
@@ -275,10 +314,10 @@ void MinBoolFunc::Init() {
 			builder.BuildRanges(&fnt_math_ranges);
 		}
 
-		fnt_math = AddFontFromFileTTF(io.Fonts, "C:\\Windows\\Fonts\\cambria.ttc", 24, nullptr, fnt_math_ranges.Data);
+		fnt_math = AddFontFromFileTTF(io.Fonts, "C:\\Windows\\Fonts\\cambria.ttc", FONT_SIZE, nullptr, fnt_math_ranges.Data);
 
 		if (!fnt_math) {
-			fnt_math = AddFontFromFileTTF(io.Fonts, "cambria.ttc", 24, nullptr, fnt_math_ranges.Data);
+			fnt_math = AddFontFromFileTTF(io.Fonts, "cambria.ttc", FONT_SIZE, nullptr, fnt_math_ranges.Data);
 		}
 
 		if (!fnt_math) {
@@ -348,7 +387,8 @@ void MinBoolFunc::ImGuiStep() {
 
 		ImGuiTableFlags table_flags = (ImGuiTableFlags_Borders
 									   | ImGuiTableFlags_RowBg
-									   /* | ImGuiTableFlags_SizingFixedSame */
+									   /* | ImGuiTableFlags_SizingFixedSame
+									   | ImGuiTableFlags_NoHostExtendX */
 									   );
 
 		// 
@@ -392,8 +432,13 @@ void MinBoolFunc::ImGuiStep() {
 					SetVariableCount(3);
 				}
 
-				if (ImGui::Button(u8"Вектор функции с пятью переменными")) {
+				if (ImGui::Button(u8"Вектор функции с пятью переменными 1")) {
 					ImStrncpy(formula, formula_examples[3], sizeof(formula));
+					SetVariableCount(5);
+				}
+
+				if (ImGui::Button(u8"Вектор функции с пятью переменными 2")) {
+					ImStrncpy(formula, formula_examples[8], sizeof(formula));
 					SetVariableCount(5);
 				}
 
@@ -531,7 +576,7 @@ void MinBoolFunc::ImGuiStep() {
 			ImVec2 line_p2 = {};
 
 			int column_count = row_header.size() + 1;
-			float table_width = 90 * column_count;
+			float table_width = 0; // 90 * column_count;
 			if (ImGui::BeginTable("Karnaugh_map", column_count, table_flags, {table_width, 0})) {
 
 				float row_height = ImGui::GetTextLineHeight() * 1.5f;
@@ -612,7 +657,7 @@ void MinBoolFunc::ImGuiStep() {
 					ImGui::TextUnformatted(col_header[i]);
 
 					for (int _j = 0; _j < row_header.size(); _j++) {
-						int j = 0;
+						int j;
 						if (variable_count == 5) {
 							if (_j >= 4) {
 								j = 4 + wrap(_j - 4 + karnaugh_xoff, 4);
@@ -657,44 +702,15 @@ void MinBoolFunc::ImGuiStep() {
 				list->AddLine(line_p1, line_p2, COLOR_RED, 2);
 			}
 
-			ImColor area_colors[] = {
-				// {0xFF, 0x00, 0x00, 0x40},
-				// {0xFF, 0x92, 0x00, 0x40},
-				// {0x42, 0xD5, 0x2B, 0x40},
-				// {0x24, 0xE0, 0xD4, 0x40},
-				// {0x00, 0x1B, 0xFF, 0x40},
-				// {0xFF, 0x00, 0xFE, 0x40},
-
-				{0xFF, 0x00, 0x00, 0x40},
-				{0x00, 0x00, 0xFF, 0x40},
-			};
-
 			// areas = {
 			// 	{3, 0, 2, 2},
 			// 	{0, 0, 2, 1},
 			// };
 
-			int area_label_x = 0;
-			for (int i = 0; i < areas.size(); i++) {
-				const Area& area = areas[i];
-
-				ImColor color = area_colors[i % IM_ARRAYSIZE(area_colors)];
-
-				DrawArea(area, color, i, area_label_x);
-
-				if (variable_count == 5) {
-					Area area2 = area;
-					if (area.x < 4) {
-						area2.x = wrap(area.x + 4, row_header.size());
-					}
-					if (area.x >= 4) {
-						area2.x = wrap(area.x - 4, row_header.size());
-					}
-
-					if (IsAreaValid(area2)) {
-						DrawArea(area2, color, i, area_label_x);
-					}
-				}
+			if (show_correct_answer) {
+				DrawAreas(areas2);
+			} else {
+				DrawAreas(areas);
 			}
 
 			if (dragging) {
@@ -741,11 +757,16 @@ void MinBoolFunc::ImGuiStep() {
 						area.x = ImMin(drag_x1, drag_x2) + karnaugh_xoff;
 						area.y = ImMin(drag_y1, drag_y2) + karnaugh_yoff;
 
-						if (drag_x1 >= 4) {
-							area.x = 4 + wrap(area.x - 4, 4);
+						if (variable_count == 5) {
+							if (drag_x1 >= 4) {
+								area.x = 4 + wrap(area.x - 4, 4);
+							} else {
+								area.x = wrap(area.x, 4);
+							}
 						} else {
-							area.x = wrap(area.x, 4);
+							area.x = wrap(area.x, row_header.size());
 						}
+
 						area.y = wrap(area.y, col_header.size());
 
 						area.w = ImAbs(drag_x2 - drag_x1) + 1;
@@ -764,7 +785,7 @@ void MinBoolFunc::ImGuiStep() {
 						}
 
 						areas.push_back(area);
-						BuildResult();
+						BuildResult(areas, result_lua, result_unicode, result_rank);
 					}
 
 				l_area_add_out:
@@ -775,7 +796,7 @@ void MinBoolFunc::ImGuiStep() {
 			} else {
 				for (int i = 0; i < col_header.size(); i++) {
 					for (int j = 0; j < row_header.size(); j++) {
-						if (cell_ids_abs[i][j] != 0 && cell_ids_abs[i][j] == ImGui::GetActiveID()) {
+						if (!show_correct_answer && cell_ids_abs[i][j] != 0 && cell_ids_abs[i][j] == ImGui::GetActiveID()) {
 							dragging = true;
 							drag_id = cell_ids_abs[i][j];
 							drag_x1 = j;
@@ -797,271 +818,24 @@ void MinBoolFunc::ImGuiStep() {
 
 			}
 
-			ImGui::Text(u8"Области:");
-			for (int i = 0; i < areas.size(); i++) {
-				const Area& area = areas[i];
+			ImGui::Checkbox(u8"Показать подобранный ответ", &show_correct_answer);
 
-				char subscript[16];
-				if ((i + 1) >= 10) {
-					int j = 0;
-					subscript[j++] = 0xE2; // U+2080
-					subscript[j++] = 0x82;
-					subscript[j++] = 0x80 + (i + 1) / 10;
-					subscript[j++] = 0xE2;
-					subscript[j++] = 0x82;
-					subscript[j++] = 0x80 + (i + 1) % 10;
-					subscript[j++] = 0;
+			if (show_correct_answer) {
+				ShowResultInfo(areas2, result2_lua, result2_unicode, result2_rank, true);
+			} else {
+				ShowResultInfo(areas, result_lua, result_unicode, result_rank);
+
+				if (result_rank == result2_rank) {
+					ImColor color = {30, 210, 30, 255};
+					// ImColor color = {0, 255, 0, 255};
+					const char* text = u8"Сложность формулы совпадает с подобранным ответом.";
+					// ImVec2 cursor = ImGui::GetCursorScreenPos();
+					// ImGui::GetWindowDrawList()->AddText({cursor.x + 1, cursor.y + 1}, IM_COL32(0, 0, 0, 128), text);
+					ImGui::TextColored(color, text);
 				} else {
-					int j = 0;
-					subscript[j++] = 0xE2; // U+2080
-					subscript[j++] = 0x82;
-					subscript[j++] = 0x80 + (i + 1) % 10;
-					subscript[j++] = 0;
-				}
-
-				ImGui::PushID((i + 1) * 100);
-				bool b = ImGui::Button(" - ");
-				ImGui::PopID();
-
-				if (b) {
-					areas.erase(areas.begin() + i);
-					i--;
-					BuildResult();
-					continue;
-				}
-
-				ImGui::SameLine();
-
-				ImVec4 color = ImGui::ColorConvertU32ToFloat4(area_colors[i % IM_ARRAYSIZE(area_colors)]);
-				color.w = 1;
-				ImGui::TextColored(color,
-								   "S%s: (%d,%d), (%dx%d)",
-								   subscript, area.x, area.y, area.w, area.h);
-			}
-
-			ImGui::Text(u8"МДНФ:");
-			{
-				result_lua.clear();
-				result_unicode.clear();
-				result_rank = 0;
-
-				for (int i = 0; i < areas.size(); i++) {
-					const Area& area = areas[i];
-
-					char v1 = row_header2[area.x][0]; // y y x3 x3
-					char v2 = row_header2[area.x][1]; //   z x4 x4
-					char v3 = row_header2[area.x][2]; //        x5
-					char v4 = col_header2[area.y][0]; // x x x1 x1
-					char v5 = col_header2[area.y][1]; //     x2 x2
-
-					bool v1_changes = false;
-					bool v2_changes = false;
-					bool v3_changes = false;
-					bool v4_changes = false;
-					bool v5_changes = false;
-
-					for (int _y = area.y; _y < area.y + area.h; _y++) {
-						int y = wrap(_y, col_header2.size());
-						for (int _x = area.x; _x < area.x + area.w; _x++) {
-
-							int x;
-							if (variable_count == 5) {
-								if (area.x >= 4) {
-									x = 4 + wrap(_x - 4, 4);
-								} else {
-									x = wrap(_x, 4);
-								}
-							} else {
-								x = wrap(_x, row_header.size());
-							}
-
-							if (row_header2[x][0] != v1) v1_changes = true;
-							if (row_header2[x][1] != v2) v2_changes = true;
-							if (row_header2[x][2] != v3) v3_changes = true;
-							if (col_header2[y][0] != v4) v4_changes = true;
-							if (col_header2[y][1] != v5) v5_changes = true;
-						}
-					}
-
-					if (variable_count == 5) {
-						Area area2 = area;
-						if (area.x < 4) {
-							area2.x = wrap(area.x + 4, row_header.size());
-						}
-						if (area.x >= 4) {
-							area2.x = wrap(area.x - 4, row_header.size());
-						}
-
-						if (IsAreaValid(area2)) {
-							for (int _y = area2.y; _y < area2.y + area2.h; _y++) {
-								int y = wrap(_y, col_header2.size());
-								for (int _x = area2.x; _x < area2.x + area2.w; _x++) {
-
-									int x;
-									if (variable_count == 5) {
-										if (area2.x >= 4) {
-											x = 4 + wrap(_x - 4, 4);
-										} else {
-											x = wrap(_x, 4);
-										}
-									} else {
-										x = wrap(_x, row_header.size());
-									}
-
-									if (row_header2[x][0] != v1) v1_changes = true;
-									if (row_header2[x][1] != v2) v2_changes = true;
-									if (row_header2[x][2] != v3) v3_changes = true;
-									if (col_header2[y][0] != v4) v4_changes = true;
-									if (col_header2[y][1] != v5) v5_changes = true;
-								}
-							}
-						}
-					}
-
-					if (i > 0) {
-						result_lua += " or ";
-						result_unicode += u8" ∨ ";
-					}
-
-					bool x_changes[5] = {};
-					char x[5] = {};
-
-					switch (variable_count) {
-						case 2: {
-							x_changes[0] = v4_changes;
-							x_changes[1] = v1_changes;
-							x[0] = v4;
-							x[1] = v1;
-							break;
-						}
-						case 3: {
-							x_changes[0] = v4_changes;
-							x_changes[1] = v1_changes;
-							x_changes[2] = v2_changes;
-							x[0] = v4;
-							x[1] = v1;
-							x[2] = v2;
-							break;
-						}
-						case 4: {
-							x_changes[0] = v4_changes;
-							x_changes[1] = v5_changes;
-							x_changes[2] = v1_changes;
-							x_changes[3] = v2_changes;
-							x[0] = v4;
-							x[1] = v5;
-							x[2] = v1;
-							x[3] = v2;
-							break;
-						}
-						case 5: {
-							x_changes[0] = v4_changes;
-							x_changes[1] = v5_changes;
-							x_changes[2] = v1_changes;
-							x_changes[3] = v2_changes;
-							x_changes[4] = v3_changes;
-							x[0] = v4;
-							x[1] = v5;
-							x[2] = v1;
-							x[3] = v2;
-							x[4] = v3;
-							break;
-						}
-					}
-
-					result_lua += "(";
-					result_unicode += "(";
-
-					bool needdelim = false;
-
-					for (int i = 0; i < variable_count; i++) {
-						if (!x_changes[i]) {
-							if (needdelim) {
-								result_lua += " and ";
-								result_unicode += u8" ∧ ";
-
-								needdelim = false;
-							}
-
-							if (x[i] == '0') {
-								{
-									// char buf[] = {'n', 'o', 't', '(', 'x', '0' + (i + 1) % 10, ')', 0};
-									// result_lua += buf;
-
-									result_lua += "not(";
-									result_lua += var_names_lua[i];
-									result_lua += ")";
-								}
-
-								{
-									// char buf[] = {0xC2, 0xAC, 'x', 0xE2, 0x82, 0x80 + (i + 1) % 10, 0}; // U+00AC U+2080
-									// result_unicode += buf;
-
-									result_unicode += u8"¬";
-									result_unicode += var_names_unicode[i];
-								}
-
-								needdelim = true;
-							} else if (x[i] == '1') {
-								{
-									// char buf[] = {'x', '0' + (i + 1) % 10, 0};
-									// result_lua += buf;
-
-									result_lua += var_names_lua[i];
-								}
-
-								{
-									// char buf[] = {'x', 0xE2, 0x82, 0x80 + (i + 1) % 10, 0}; // U+2080
-									// result_unicode += buf;
-
-									result_unicode += var_names_unicode[i];
-								}
-
-								needdelim = true;
-							}
-
-							result_rank++;
-						}
-					}
-
-					result_lua += ")";
-					result_unicode += ")";
+					ImGui::TextColored(COLOR_RED, u8"Сложность формулы не совпадает с подобранным ответом.");
 				}
 			}
-
-			if (!result_lua.empty()) {
-				ImGui::PushTextWrapPos(0);
-				ImGui::PushFont(fnt_mono);
-				ImGui::TextUnformatted(result_lua.c_str());
-				ImGui::PopFont();
-				ImGui::PopTextWrapPos();
-
-				if (ImGui::BeginPopupContextItem("result_lua_context")) {
-					if (ImGui::Button(u8"Копировать")) {
-						ImGui::SetClipboardText(result_lua.c_str());
-					}
-
-					ImGui::EndPopup();
-				}
-			}
-
-			if (!result_unicode.empty()) {
-				ImGui::PushTextWrapPos(0);
-				ImGui::PushFont(fnt_math);
-				ImGui::TextUnformatted(result_unicode.c_str());
-				ImGui::PopFont();
-				ImGui::PopTextWrapPos();
-
-				if (ImGui::BeginPopupContextItem("result_unicode_context")) {
-					if (ImGui::Button(u8"Копировать")) {
-						ImGui::SetClipboardText(result_unicode.c_str());
-					}
-
-					ImGui::EndPopup();
-				}
-			}
-
-			ImGui::Text(u8"Ранг: %d", result_rank);
 
 			// printf("result_lua capacity: %zu\n", result_lua.capacity());
 			// printf("result_unicode capacity: %zu\n", result_unicode.capacity());
@@ -1094,6 +868,9 @@ void MinBoolFunc::CompileScript() {
 	result_lua.clear();
 	result_unicode.clear();
 	result_rank = 0;
+	karnaugh_xoff = 0;
+	karnaugh_yoff = 0;
+	show_correct_answer = false;
 
 	script_error = true;
 
@@ -1281,10 +1058,197 @@ void MinBoolFunc::BuildKarnaughMap() {
 	for (auto& v : cell_rects_abs) v.resize(row_header.size());
 	for (auto& v : cell_ids) v.resize(row_header.size());
 	for (auto& v : cell_ids_abs) v.resize(row_header.size());
+
+	FindCorrectAnswer();
 }
 
-void MinBoolFunc::BuildResult() {
+void MinBoolFunc::BuildResult(const std::vector<Area>& areas, std::string& result_lua, std::string& result_unicode, int& result_rank) {
+	result_lua.clear();
+	result_unicode.clear();
+	result_rank = 0;
 
+	for (int i = 0; i < areas.size(); i++) {
+		const Area& area = areas[i];
+
+		char v1 = row_header2[area.x][0]; // y y x3 x3
+		char v2 = row_header2[area.x][1]; //   z x4 x4
+		char v3 = row_header2[area.x][2]; //        x5
+		char v4 = col_header2[area.y][0]; // x x x1 x1
+		char v5 = col_header2[area.y][1]; //     x2 x2
+
+		bool v1_changes = false;
+		bool v2_changes = false;
+		bool v3_changes = false;
+		bool v4_changes = false;
+		bool v5_changes = false;
+
+		for (int _y = area.y; _y < area.y + area.h; _y++) {
+			int y = wrap(_y, col_header2.size());
+			for (int _x = area.x; _x < area.x + area.w; _x++) {
+
+				int x;
+				if (variable_count == 5) {
+					if (area.x >= 4) {
+						x = 4 + wrap(_x - 4, 4);
+					} else {
+						x = wrap(_x, 4);
+					}
+				} else {
+					x = wrap(_x, row_header.size());
+				}
+
+				if (row_header2[x][0] != v1) v1_changes = true;
+				if (row_header2[x][1] != v2) v2_changes = true;
+				if (row_header2[x][2] != v3) v3_changes = true;
+				if (col_header2[y][0] != v4) v4_changes = true;
+				if (col_header2[y][1] != v5) v5_changes = true;
+			}
+		}
+
+		if (variable_count == 5) {
+			Area area2 = area;
+			if (area.x < 4) {
+				area2.x = 4 + wrap(area.x, 4);
+			}
+			if (area.x >= 4) {
+				area2.x = wrap(area.x, 4);
+			}
+
+			if (IsAreaValid(area2)) {
+				for (int _y = area2.y; _y < area2.y + area2.h; _y++) {
+					int y = wrap(_y, col_header2.size());
+					for (int _x = area2.x; _x < area2.x + area2.w; _x++) {
+
+						int x;
+						if (variable_count == 5) {
+							if (area2.x >= 4) {
+								x = 4 + wrap(_x - 4, 4);
+							} else {
+								x = wrap(_x, 4);
+							}
+						} else {
+							x = wrap(_x, row_header.size());
+						}
+
+						if (row_header2[x][0] != v1) v1_changes = true;
+						if (row_header2[x][1] != v2) v2_changes = true;
+						if (row_header2[x][2] != v3) v3_changes = true;
+						if (col_header2[y][0] != v4) v4_changes = true;
+						if (col_header2[y][1] != v5) v5_changes = true;
+					}
+				}
+			}
+		}
+
+		if (i > 0) {
+			result_lua += " or ";
+			result_unicode += u8" ∨ ";
+		}
+
+		bool x_changes[5] = {};
+		char x[5] = {};
+
+		switch (variable_count) {
+			case 2: {
+			x_changes[0] = v4_changes;
+			x_changes[1] = v1_changes;
+			x[0] = v4;
+			x[1] = v1;
+			break;
+			}
+			case 3: {
+				x_changes[0] = v4_changes;
+				x_changes[1] = v1_changes;
+				x_changes[2] = v2_changes;
+				x[0] = v4;
+				x[1] = v1;
+				x[2] = v2;
+				break;
+			}
+			case 4: {
+				x_changes[0] = v4_changes;
+				x_changes[1] = v5_changes;
+				x_changes[2] = v1_changes;
+				x_changes[3] = v2_changes;
+				x[0] = v4;
+				x[1] = v5;
+				x[2] = v1;
+				x[3] = v2;
+				break;
+			}
+			case 5: {
+				x_changes[0] = v4_changes;
+				x_changes[1] = v5_changes;
+				x_changes[2] = v1_changes;
+				x_changes[3] = v2_changes;
+				x_changes[4] = v3_changes;
+				x[0] = v4;
+				x[1] = v5;
+				x[2] = v1;
+				x[3] = v2;
+				x[4] = v3;
+				break;
+			}
+		}
+
+		result_lua += "(";
+		result_unicode += "(";
+
+		bool needdelim = false;
+
+		for (int i = 0; i < variable_count; i++) {
+			if (!x_changes[i]) {
+				if (needdelim) {
+					result_lua += " and ";
+					result_unicode += u8" ∧ ";
+
+					needdelim = false;
+				}
+
+				if (x[i] == '0') {
+					{
+						// char buf[] = {'n', 'o', 't', '(', 'x', '0' + (i + 1) % 10, ')', 0};
+						// result_lua += buf;
+
+						result_lua += "not(";
+						result_lua += var_names_lua[i];
+						result_lua += ")";
+					}
+
+					{
+						// char buf[] = {0xC2, 0xAC, 'x', 0xE2, 0x82, 0x80 + (i + 1) % 10, 0}; // U+00AC U+2080
+						// result_unicode += buf;
+
+						result_unicode += u8"¬";
+						result_unicode += var_names_unicode[i];
+					}
+
+					needdelim = true;
+				} else if (x[i] == '1') {
+					{
+						// char buf[] = {'x', '0' + (i + 1) % 10, 0};
+						// result_lua += buf;
+
+						result_lua += var_names_lua[i];
+					}
+
+					{
+						// char buf[] = {'x', 0xE2, 0x82, 0x80 + (i + 1) % 10, 0}; // U+2080
+						// result_unicode += buf;
+
+						result_unicode += var_names_unicode[i];
+					}
+
+					needdelim = true;
+				}
+
+				result_rank++;
+			}
+		}
+
+		result_lua += ")";
+		result_unicode += ")";
+	}
 }
 
 bool MinBoolFunc::IsAreaValid(const Area& area) {
@@ -1376,4 +1340,273 @@ void MinBoolFunc::DrawArea(const Area& area, ImColor color, int area_index, int&
 			}
 		}
 	}
+}
+
+void MinBoolFunc::FindCorrectAnswer() {
+	areas2.clear();
+
+	auto check_for_area = [&](const Area& area, int cell_x, int cell_y) {
+
+		for (int _y = area.y; _y < area.y + area.h; _y++) {
+			int y = wrap(_y, col_header.size());
+
+			for (int _x = area.x; _x < area.x + area.w; _x++) {
+
+				int x;
+				if (variable_count == 5) {
+					if (area.x >= 4) {
+						x = 4 + wrap(_x - 4, 4);
+					} else {
+						x = wrap(_x, 4);
+					}
+				} else {
+					x = wrap(_x, row_header.size());
+				}
+
+				if (x == cell_x && y == cell_y) {
+					return true;
+				}
+			}
+		}
+		return false;
+	};
+
+	auto is_cell_covered = [&](int cell_x, int cell_y, int area_ignore_index = -1) {
+
+		for (int i = 0; i < areas2.size(); i++) {
+			if (i == area_ignore_index) {
+				continue;
+			}
+
+			const Area& area = areas2[i];
+
+			if (check_for_area(area, cell_x, cell_y)) {
+				return true;
+			}
+
+			if (variable_count == 5) {
+				Area area2 = area;
+				if (area.x < 4) {
+					area2.x = 4 + wrap(area.x, 4);
+				}
+				if (area.x >= 4) {
+					area2.x = wrap(area.x, 4);
+				}
+
+				if (IsAreaValid(area2)) {
+					if (check_for_area(area2, cell_x, cell_y)) {
+						return true;
+					}
+				}
+			}
+		}
+
+		return false;
+	};
+
+	for (int y = 0; y < col_header.size(); y++) {
+		for (int x = 0; x < row_header.size(); x++) {
+
+			int w = row_header.size();
+			if (!cells[x + y * w]) {
+				continue;
+			}
+
+			if (is_cell_covered(x, y)) {
+				continue;
+			}
+
+			std::vector<Area> areas_to_try;
+
+			// S = 16
+			if (variable_count >= 4) areas_to_try.push_back({x, y, 4, 4});
+
+			// S = 8
+			if (variable_count >= 3) areas_to_try.push_back({x, y, 4, 2});
+			if (variable_count >= 4) areas_to_try.push_back({x, y - 1, 4, 2});
+			if (variable_count >= 4) areas_to_try.push_back({x, y, 2, 4});
+			if (variable_count >= 4) areas_to_try.push_back({x - 1, y, 2, 4});
+
+			// S = 4
+			if (variable_count >= 3) areas_to_try.push_back({x, y, 4, 1});
+			if (variable_count >= 4) areas_to_try.push_back({x, y, 1, 4});
+			areas_to_try.push_back({x, y, 2, 2});
+			if (variable_count >= 3) areas_to_try.push_back({x - 1, y, 2, 2});
+			if (variable_count >= 4) areas_to_try.push_back({x, y - 1, 2, 2});
+			if (variable_count >= 4) areas_to_try.push_back({x - 1, y - 1, 2, 2});
+
+			// S = 2
+			areas_to_try.push_back({x, y, 2, 1});
+			areas_to_try.push_back({x, y, 1, 2});
+
+			// S = 1
+			areas_to_try.push_back({x, y, 1, 1});
+
+			for (Area& area : areas_to_try) {
+				if (variable_count == 5) {
+					if (x >= 4) {
+						area.x = 4 + wrap(area.x - 4, 4);
+					} else {
+						area.x = wrap(area.x, 4);
+					}
+				} else {
+					area.x = wrap(area.x, row_header.size());
+				}
+
+				area.y = wrap(area.y, col_header.size());
+			}
+
+			for (Area& area : areas_to_try) {
+				if (IsAreaValid(area)) {
+					areas2.push_back(area);
+					break;
+				}
+			}
+
+
+		}
+	}
+
+	// get rid of redundant areas
+
+	for (int i = 0; i < areas2.size(); i++) {
+		const Area& area = areas2[i];
+
+		bool all_cells_covered = true;
+
+		for (int _y = area.y; _y < area.y + area.h; _y++) {
+			int y = wrap(_y, col_header.size());
+
+			for (int _x = area.x; _x < area.x + area.w; _x++) {
+
+				int x;
+				if (variable_count == 5) {
+					if (area.x >= 4) {
+						x = 4 + wrap(_x - 4, 4);
+					} else {
+						x = wrap(_x, 4);
+					}
+				} else {
+					x = wrap(_x, row_header.size());
+				}
+
+				all_cells_covered &= is_cell_covered(x, y, i);
+			}
+		}
+
+		if (all_cells_covered) {
+			areas2.erase(areas2.begin() + i);
+			i--;
+			continue;
+		}
+	}
+
+	BuildResult(areas2, result2_lua, result2_unicode, result2_rank);
+}
+
+void MinBoolFunc::DrawAreas(const std::vector<Area>& areas) {
+	int area_label_x = 0;
+	for (int i = 0; i < areas.size(); i++) {
+		const Area& area = areas[i];
+
+		ImColor color = area_colors[i % IM_ARRAYSIZE(area_colors)];
+
+		DrawArea(area, color, i, area_label_x);
+
+		if (variable_count == 5) {
+			Area area2 = area;
+			if (area.x < 4) {
+				area2.x = 4 + wrap(area.x, 4);
+			}
+			if (area.x >= 4) {
+				area2.x = wrap(area.x, 4);
+			}
+
+			if (IsAreaValid(area2)) {
+				DrawArea(area2, color, i, area_label_x);
+			}
+		}
+	}
+}
+
+void MinBoolFunc::ShowResultInfo(std::vector<Area>& areas, std::string& result_lua, std::string& result_unicode, int& result_rank, bool readonly) {
+	ImGui::Text(u8"Области:");
+	for (int i = 0; i < areas.size(); i++) {
+		const Area& area = areas[i];
+
+		char subscript[16];
+		if ((i + 1) >= 10) {
+			int j = 0;
+			subscript[j++] = 0xE2; // U+2080
+			subscript[j++] = 0x82;
+			subscript[j++] = 0x80 + (i + 1) / 10;
+			subscript[j++] = 0xE2;
+			subscript[j++] = 0x82;
+			subscript[j++] = 0x80 + (i + 1) % 10;
+			subscript[j++] = 0;
+		} else {
+			int j = 0;
+			subscript[j++] = 0xE2; // U+2080
+			subscript[j++] = 0x82;
+			subscript[j++] = 0x80 + (i + 1) % 10;
+			subscript[j++] = 0;
+		}
+
+		if (!readonly) {
+			ImGui::PushID((i + 1) * 100);
+			bool b = ImGui::Button(" - ");
+			ImGui::PopID();
+
+			if (b) {
+				areas.erase(areas.begin() + i);
+				i--;
+				BuildResult(areas, result_lua, result_unicode, result_rank);
+				continue;
+			}
+
+			ImGui::SameLine();
+		}
+
+		ImVec4 color = ImGui::ColorConvertU32ToFloat4(area_colors[i % IM_ARRAYSIZE(area_colors)]);
+		color.w = 1;
+		ImGui::TextColored(color,
+						   "S%s: (%d,%d), (%dx%d)",
+						   subscript, area.x, area.y, area.w, area.h);
+	}
+
+	ImGui::Text(u8"МДНФ: (ПКМ - скопировать)");
+
+	if (!result_lua.empty()) {
+		ImGui::PushTextWrapPos(0);
+		ImGui::PushFont(fnt_mono);
+		ImGui::TextUnformatted(result_lua.c_str());
+		ImGui::PopFont();
+		ImGui::PopTextWrapPos();
+
+		if (ImGui::BeginPopupContextItem("result_lua_context")) {
+			if (ImGui::Button(u8"Копировать")) {
+				ImGui::SetClipboardText(result_lua.c_str());
+			}
+
+			ImGui::EndPopup();
+		}
+	}
+
+	if (!result_unicode.empty()) {
+		ImGui::PushTextWrapPos(0);
+		ImGui::PushFont(fnt_math);
+		ImGui::TextUnformatted(result_unicode.c_str());
+		ImGui::PopFont();
+		ImGui::PopTextWrapPos();
+
+		if (ImGui::BeginPopupContextItem("result_unicode_context")) {
+			if (ImGui::Button(u8"Копировать")) {
+				ImGui::SetClipboardText(result_unicode.c_str());
+			}
+
+			ImGui::EndPopup();
+		}
+	}
+
+	ImGui::Text(u8"Сложность: %d", result_rank);
 }
