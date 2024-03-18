@@ -71,7 +71,7 @@ struct MinBoolFunc {
 
 	bool show_correct_answer;
 
-	float dpi_scale;
+	float dpi_scale = 1;
 
 	ImFont* fnt_main;
 	ImFont* fnt_mono;
