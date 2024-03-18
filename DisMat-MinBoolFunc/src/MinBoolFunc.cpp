@@ -36,19 +36,19 @@ end
 };
 
 static const char* const formula_examples[] = {
-R"(local str = "11101100"
-function f(x, y, z)
-	return fromstr(str, x, y, z)
+u8R"(local s = "11101100"
+function f(...)
+	return fromstr(s, ...)
 end
 )",
 
-R"(local t = {1,1,1,0,1,1,0,0}
+u8R"(local t = {1,1,1,0,1,1,0,0}
 function f(x, y, z)
 	return fromtable(t, x, y, z)
 end
 )",
 
-R"(local t = {
+u8R"(local t = {
 	["000"] = 1,
 	["001"] = 1,
 	["010"] = 1,
@@ -66,51 +66,47 @@ function f(x, y, z)
 end
 )",
 
-R"(local str = "10100111101000001001100100010001"
-function f(x1, x2, x3, x4, x5)
-	return fromstr(str, x1, x2, x3, x4, x5)
+u8R"(local s = "10100111101000001001100100010001"
+function f(...)
+	return fromstr(s, ...)
 end
 )",
 
 u8R"(function f(x, y)
 	return sheffer(x, y)
 
-	--[[ Или
-	return not(x and y)
-	--]]
+	-- Или
+	-- return not(x and y)
 end
 )",
 
 u8R"(function f(x, y)
 	return peirce(x, y)
 
-	--[[ Или
-	return not(x or y)
-	--]]
+	-- Или
+	-- return not(x or y)
 end
 )",
 
 u8R"(function f(x, y)
 	return impl(x, y)
 
-	--[[ Или
-	return not(x) or y
-	--]]
+	-- Или
+	-- return not(x) or y
 end
 )",
 
 u8R"(function f(x, y)
 	return xor(x, y)
 
-	--[[ Или
-	return x ~= y
-	--]]
+	-- Или
+	-- return x ~= y
 end
 )",
 
-R"(local str = "00101100001111000010111110000100"
-function f(x1, x2, x3, x4, x5)
-	return fromstr(str, x1, x2, x3, x4, x5)
+u8R"(local s = "00101100001111000010111110000100"
+function f(...)
+	return fromstr(s, ...)
 end
 )",
 
@@ -263,22 +259,6 @@ void MinBoolFunc::Init() {
 			builder.BuildRanges(&fnt_main_ranges);
 		}
 
-		const int FONT_SIZE = 18 * dpi_scale;
-
-#ifdef __ANDROID__
-		fnt_main = AddFontFromFileTTF(io.Fonts, "/system/fonts/Roboto-Regular.ttf", FONT_SIZE, nullptr, fnt_main_ranges.Data);
-#else
-		fnt_main = AddFontFromFileTTF(io.Fonts, "C:\\Windows\\Fonts\\segoeui.ttf", FONT_SIZE, nullptr, fnt_main_ranges.Data);
-#endif
-
-		if (!fnt_main) {
-			fnt_main = AddFontFromFileTTF(io.Fonts, "segoeui.ttf", FONT_SIZE, nullptr, fnt_main_ranges.Data);
-		}
-
-		if (!fnt_main) {
-			fnt_main = io.Fonts->AddFontDefault();
-		}
-
 		ImVector<ImWchar> fnt_mono_ranges;
 		{
 			ImFontGlyphRangesBuilder builder;
@@ -288,23 +268,13 @@ void MinBoolFunc::Init() {
 			builder.BuildRanges(&fnt_mono_ranges);
 		}
 
-		fnt_mono = AddFontFromFileTTF(io.Fonts, "C:\\Windows\\Fonts\\cour.ttf", FONT_SIZE, nullptr, fnt_mono_ranges.Data);
-
-		if (!fnt_mono) {
-			fnt_mono = AddFontFromFileTTF(io.Fonts, "cour.ttf", FONT_SIZE, nullptr, fnt_mono_ranges.Data);
-		}
-
-		if (!fnt_mono) {
-			fnt_mono = fnt_main;
-		}
-
 		ImVector<ImWchar> fnt_math_ranges;
 		{
 			ImWchar _ranges[] = {
-				0x2070, 0x209F, // Superscripts and Subscripts
-				0x2200, 0x22FF, // Mathematical Operators (for logical and, or)
-				0x25A0, 0x25FF, // Geometric Shapes (for triangle arrows)
-				0,
+					0x2070, 0x209F, // Superscripts and Subscripts
+					0x2200, 0x22FF, // Mathematical Operators (for logical and, or)
+					0x25A0, 0x25FF, // Geometric Shapes (for triangle arrows)
+					0,
 			};
 
 			ImFontGlyphRangesBuilder builder;
@@ -314,10 +284,41 @@ void MinBoolFunc::Init() {
 			builder.BuildRanges(&fnt_math_ranges);
 		}
 
+		const int FONT_SIZE = 18 * dpi_scale;
+
+#ifdef __ANDROID__
+
+		// 
+		// Fonts are loaded from main.cpp.
+		// 
+
+
+#else
+		fnt_main = AddFontFromFileTTF(io.Fonts, "C:\\Windows\\Fonts\\segoeui.ttf", FONT_SIZE, nullptr, fnt_main_ranges.Data);
+
+		if (!fnt_main) {
+			fnt_main = AddFontFromFileTTF(io.Fonts, "segoeui.ttf", FONT_SIZE, nullptr, fnt_main_ranges.Data);
+		}
+
+		fnt_mono = AddFontFromFileTTF(io.Fonts, "C:\\Windows\\Fonts\\cour.ttf", FONT_SIZE, nullptr, fnt_mono_ranges.Data);
+
+		if (!fnt_mono) {
+			fnt_mono = AddFontFromFileTTF(io.Fonts, "cour.ttf", FONT_SIZE, nullptr, fnt_mono_ranges.Data);
+		}
+
 		fnt_math = AddFontFromFileTTF(io.Fonts, "C:\\Windows\\Fonts\\cambria.ttc", FONT_SIZE, nullptr, fnt_math_ranges.Data);
 
 		if (!fnt_math) {
 			fnt_math = AddFontFromFileTTF(io.Fonts, "cambria.ttc", FONT_SIZE, nullptr, fnt_math_ranges.Data);
+		}
+#endif
+
+		if (!fnt_main) {
+			fnt_main = io.Fonts->AddFontDefault();
+		}
+
+		if (!fnt_mono) {
+			fnt_mono = fnt_main;
 		}
 
 		if (!fnt_math) {
@@ -610,7 +611,7 @@ void MinBoolFunc::ImGuiStep() {
 						ImGui::TableNextRow(0, row_height);
 
 						ImGui::TableNextColumn();
-						ImGui::Text(u8"x₁x₂\\x₃x₄");
+						ImGui::Text(u8"x₁x₂\\x₄x₅");
 
 						{
 							ImVec2 cursor = ImGui::GetCursorScreenPos();
@@ -831,7 +832,7 @@ void MinBoolFunc::ImGuiStep() {
 					const char* text = u8"Сложность формулы совпадает с подобранным ответом.";
 					// ImVec2 cursor = ImGui::GetCursorScreenPos();
 					// ImGui::GetWindowDrawList()->AddText({cursor.x + 1, cursor.y + 1}, IM_COL32(0, 0, 0, 128), text);
-					ImGui::TextColored(color, text);
+					ImGui::TextColored(color, "%s", text);
 				} else {
 					ImGui::TextColored(COLOR_RED, u8"Сложность формулы не совпадает с подобранным ответом.");
 				}
