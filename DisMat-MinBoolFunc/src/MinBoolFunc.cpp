@@ -271,10 +271,10 @@ void MinBoolFunc::Init() {
 		ImVector<ImWchar> fnt_math_ranges;
 		{
 			ImWchar _ranges[] = {
-					0x2070, 0x209F, // Superscripts and Subscripts
-					0x2200, 0x22FF, // Mathematical Operators (for logical and, or)
-					0x25A0, 0x25FF, // Geometric Shapes (for triangle arrows)
-					0,
+				0x2070, 0x209F, // Superscripts and Subscripts
+				0x2200, 0x22FF, // Mathematical Operators (for logical and, or)
+				0x25A0, 0x25FF, // Geometric Shapes (for triangle arrows)
+				0,
 			};
 
 			ImFontGlyphRangesBuilder builder;
@@ -746,11 +746,13 @@ void MinBoolFunc::ImGuiStep() {
 						// must be in left or right area
 						if (drag_x1 < 4) {
 							if (drag_x2 >= 4) {
+								ImGui::OpenPopup("###area_must_be_in_one_area");
 								goto l_area_add_out;
 							}
 						}
 						if (drag_x1 >= 4) {
 							if (drag_x2 < 4) {
+								ImGui::OpenPopup("###area_must_be_in_one_area");
 								goto l_area_add_out;
 							}
 						}
@@ -777,11 +779,18 @@ void MinBoolFunc::ImGuiStep() {
 						for (int i = 0; i < areas.size(); i++) {
 							if (area.x == areas[i].x && area.y == areas[i].y
 								&& area.w == areas[i].w && area.h == areas[i].h) {
+								ImGui::OpenPopup("###area_already_exists");
 								goto l_area_add_out;
 							}
 						}
 
-						if (!IsAreaValid(area)) {
+						int why;
+						if (!IsAreaValid(area, &why)) {
+							if (why == 0) {
+								ImGui::OpenPopup("###area_must_be_power_of_2");
+							} else if (why == 1) {
+								ImGui::OpenPopup("###area_must_contain_1s");
+							}
 							goto l_area_add_out;
 						}
 
@@ -848,6 +857,46 @@ void MinBoolFunc::ImGuiStep() {
 
 
 	l_window_end:;
+
+		ImGuiPopupFlags popup_flags = (ImGuiWindowFlags_NoResize
+									   | ImGuiWindowFlags_NoMove
+									   | ImGuiWindowFlags_NoScrollbar
+									   | ImGuiWindowFlags_NoCollapse);
+
+		// ImGui::PushItemWidth(50 * dpi_scale * ImGui::GetIO().FontGlobalScale);
+		if (ImGui::BeginPopupModal(u8"Ошибка###area_must_be_in_one_area", nullptr, popup_flags)) {
+			ImGui::Text(u8"Область должна находиться либо в левой, либо в правой части карты Карно.\n"
+						u8"(Симметричные области покрываются автоматически).");
+			if (ImGui::Button(u8"Ок")) {
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::EndPopup();
+		}
+		// ImGui::PopItemWidth();
+
+		if (ImGui::BeginPopupModal(u8"Ошибка###area_already_exists", nullptr, popup_flags)) {
+			ImGui::Text(u8"Эта область уже существует.");
+			if (ImGui::Button(u8"Ок")) {
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::EndPopup();
+		}
+
+		if (ImGui::BeginPopupModal(u8"Ошибка###area_must_be_power_of_2", nullptr, popup_flags)) {
+			ImGui::Text(u8"Площадь области должна быть степенью двойки.");
+			if (ImGui::Button(u8"Ок")) {
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::EndPopup();
+		}
+
+		if (ImGui::BeginPopupModal(u8"Ошибка###area_must_contain_1s", nullptr, popup_flags)) {
+			ImGui::Text(u8"Область должна покрывать только единицы.");
+			if (ImGui::Button(u8"Ок")) {
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::EndPopup();
+		}
 
 #ifdef __ANDROID__
 	{
@@ -1252,9 +1301,10 @@ void MinBoolFunc::BuildResult(const std::vector<Area>& areas, std::string& resul
 	}
 }
 
-bool MinBoolFunc::IsAreaValid(const Area& area) {
+bool MinBoolFunc::IsAreaValid(const Area& area, int* why) {
 	int S = area.w * area.h;
 	if (!ImIsPowerOfTwo(S)) {
+		if (why) *why = 0;
 		return false;
 	}
 
@@ -1276,6 +1326,7 @@ bool MinBoolFunc::IsAreaValid(const Area& area) {
 
 			int w = row_header.size();
 			if (!cells[x + y * w]) {
+				if (why) *why = 1;
 				return false;
 			}
 		}
@@ -1332,12 +1383,16 @@ void MinBoolFunc::DrawArea(const Area& area, ImColor color, int area_index, int&
 				char buf[16];
 				ImFormatString(buf, sizeof(buf), "S%s", subscript);
 				ImU32 color = ImGui::ColorConvertFloat4ToU32(ImGui::GetStyle().Colors[ImGuiCol_Text]);
+				ImVec2 text_size = ImGui::CalcTextSize(buf);
 				ImVec2 pos = ImGui::GetMousePos();
 				pos.x += area_label_x;
-				pos.y -= 25;
+				pos.y -= text_size.y + 4 * dpi_scale * ImGui::GetIO().FontGlobalScale;
+				ImVec2 pmin = pos;
+				ImVec2 pmax = {pos.x + text_size.x, pos.y + text_size.y};
+				ImGui::GetForegroundDrawList()->AddRectFilled(pmin, pmax, IM_COL32(255, 255, 255, 220));
 				ImGui::GetForegroundDrawList()->AddText(pos, color, buf);
 
-				area_label_x += 20;
+				area_label_x += 15 * dpi_scale * ImGui::GetIO().FontGlobalScale;
 			}
 		}
 	}
