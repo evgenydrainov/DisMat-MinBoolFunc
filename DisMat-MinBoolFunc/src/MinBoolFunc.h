@@ -87,7 +87,7 @@ struct MinBoolFunc {
 	void SetVariableCount(int _variable_count);
 	void BuildKarnaughMap();
 	void BuildResult(const std::vector<Area>& areas, std::string& result_lua, std::string& result_unicode, int& result_rank);
-	bool IsAreaValid(const Area& area);
+	bool IsAreaValid(const Area& area, int* why = nullptr);
 	void DrawArea(const Area& area, ImColor color, int area_index, int& area_label_x);
 	void FindCorrectAnswer();
 	void DrawAreas(const std::vector<Area>& areas);
