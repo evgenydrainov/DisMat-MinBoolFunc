@@ -883,7 +883,7 @@ void MinBoolFunc::ImGuiStep() {
 		}
 
 		if (ImGui::BeginPopupModal(u8"Ошибка###area_must_be_power_of_2", nullptr, popup_flags)) {
-			ImGui::Text(u8"Площадь области должна быть степенью двойки.");
+			ImGui::Text(u8"Площадь области должна быть степенью двойки (2ⁿ).");
 			if (ImGui::Button(u8"Ок")) {
 				ImGui::CloseCurrentPopup();
 			}
@@ -1384,15 +1384,17 @@ void MinBoolFunc::DrawArea(const Area& area, ImColor color, int area_index, int&
 				ImFormatString(buf, sizeof(buf), "S%s", subscript);
 				ImU32 color = ImGui::ColorConvertFloat4ToU32(ImGui::GetStyle().Colors[ImGuiCol_Text]);
 				ImVec2 text_size = ImGui::CalcTextSize(buf);
+				float scale = dpi_scale * ImGui::GetIO().FontGlobalScale;
 				ImVec2 pos = ImGui::GetMousePos();
 				pos.x += area_label_x;
-				pos.y -= text_size.y + 4 * dpi_scale * ImGui::GetIO().FontGlobalScale;
-				ImVec2 pmin = pos;
-				ImVec2 pmax = {pos.x + text_size.x, pos.y + text_size.y};
-				ImGui::GetForegroundDrawList()->AddRectFilled(pmin, pmax, IM_COL32(255, 255, 255, 220));
+				pos.y -= text_size.y + 4 * scale;
+				float hpad = 1.6f * scale;
+				ImVec2 pmin = {pos.x - hpad, pos.y};
+				ImVec2 pmax = {pos.x + hpad + text_size.x, pos.y + text_size.y};
+				ImGui::GetForegroundDrawList()->AddRectFilled(pmin, pmax, IM_COL32(255, 255, 255, 220), 5);
 				ImGui::GetForegroundDrawList()->AddText(pos, color, buf);
 
-				area_label_x += 15 * dpi_scale * ImGui::GetIO().FontGlobalScale;
+				area_label_x += 16 * scale;
 			}
 		}
 	}
