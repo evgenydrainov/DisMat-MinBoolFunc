@@ -2,3 +2,4 @@
 *.h linguist-language=C++
 DisMat-MinBoolFunc/src/imgui/** linguist-vendored
 DisMat-MinBoolFunc/src/lua/** linguist-vendored
+external/** linguist-vendored
