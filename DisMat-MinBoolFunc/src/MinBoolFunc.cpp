@@ -247,13 +247,15 @@ void MinBoolFunc::Init() {
 		ImVector<ImWchar> fnt_main_ranges;
 		{
 			ImWchar _ranges[] = {
+				0x0020, 0x007F, // Basic Latin
+				0x0401, 0x0401, // Ё
+				0x0410, 0x044F, // Русский алфавит
+				0x0451, 0x0451, // ё
 				0x2070, 0x209F, // Superscripts and Subscripts
 				0,
 			};
 
 			ImFontGlyphRangesBuilder builder;
-			builder.AddRanges(io.Fonts->GetGlyphRangesDefault());
-			builder.AddRanges(io.Fonts->GetGlyphRangesCyrillic());
 			builder.AddRanges(_ranges);
 
 			builder.BuildRanges(&fnt_main_ranges);
@@ -261,9 +263,16 @@ void MinBoolFunc::Init() {
 
 		ImVector<ImWchar> fnt_mono_ranges;
 		{
+			ImWchar _ranges[] = {
+				0x0020, 0x007F, // Basic Latin
+				0x0401, 0x0401, // Ё
+				0x0410, 0x044F, // Русский алфавит
+				0x0451, 0x0451, // ё
+				0,
+			};
+
 			ImFontGlyphRangesBuilder builder;
-			builder.AddRanges(io.Fonts->GetGlyphRangesDefault());
-			builder.AddRanges(io.Fonts->GetGlyphRangesCyrillic());
+			builder.AddRanges(_ranges);
 
 			builder.BuildRanges(&fnt_mono_ranges);
 		}
@@ -282,6 +291,22 @@ void MinBoolFunc::Init() {
 			builder.AddRanges(_ranges);
 
 			builder.BuildRanges(&fnt_math_ranges);
+		}
+
+		ImVector<ImWchar> fnt_main_bold_ranges;
+		{
+			ImWchar _ranges[] = {
+				0x0020, 0x007F, // Basic Latin
+				0x0401, 0x0401, // Ё
+				0x0410, 0x044F, // Русский алфавит
+				0x0451, 0x0451, // ё
+				0,
+			};
+
+			ImFontGlyphRangesBuilder builder;
+			builder.AddRanges(_ranges);
+
+			builder.BuildRanges(&fnt_main_bold_ranges);
 		}
 
 		const int FONT_SIZE = 18 * dpi_scale;
@@ -311,6 +336,12 @@ void MinBoolFunc::Init() {
 		if (!fnt_math) {
 			fnt_math = AddFontFromFileTTF(io.Fonts, "cambria.ttc", FONT_SIZE, nullptr, fnt_math_ranges.Data);
 		}
+
+		fnt_main_bold = AddFontFromFileTTF(io.Fonts, "C:\\Windows\\Fonts\\seguisb.ttf", FONT_SIZE, nullptr, fnt_main_bold_ranges.Data);
+
+		if (!fnt_main_bold) {
+			fnt_main_bold = AddFontFromFileTTF(io.Fonts, "seguisb.ttf", FONT_SIZE, nullptr, fnt_main_bold_ranges.Data);
+		}
 #endif
 
 		if (!fnt_main) {
@@ -323,6 +354,10 @@ void MinBoolFunc::Init() {
 
 		if (!fnt_math) {
 			fnt_math = fnt_main;
+		}
+
+		if (!fnt_main_bold) {
+			fnt_main_bold = fnt_main;
 		}
 
 		io.Fonts->Build();
@@ -833,17 +868,23 @@ void MinBoolFunc::ImGuiStep() {
 			if (show_correct_answer) {
 				ShowResultInfo(areas2, result2_lua, result2_unicode, result2_rank, true);
 			} else {
-				ShowResultInfo(areas, result_lua, result_unicode, result_rank);
-
-				if (result_rank == result2_rank) {
-					ImColor color = {30, 210, 30, 255};
-					// ImColor color = {0, 255, 0, 255};
-					const char* text = u8"Сложность формулы совпадает с подобранным ответом.";
-					// ImVec2 cursor = ImGui::GetCursorScreenPos();
-					// ImGui::GetWindowDrawList()->AddText({cursor.x + 1, cursor.y + 1}, IM_COL32(0, 0, 0, 128), text);
-					ImGui::TextColored(color, "%s", text);
+				if (areas.empty()) {
+					ImGui::Text(u8"Зажмите ЛКМ, чтобы выделить область.");
 				} else {
-					ImGui::TextColored(COLOR_RED, u8"Сложность формулы не совпадает с подобранным ответом.");
+					ShowResultInfo(areas, result_lua, result_unicode, result_rank);
+
+					ImGui::PushFont(fnt_main_bold);
+					if (result_rank == result2_rank) {
+						ImColor color = {0, 180, 0, 255};
+						const char* text = u8"Сложность формулы совпадает с подобранным ответом.";
+						// ImVec2 cursor = ImGui::GetCursorScreenPos();
+						// ImGui::GetWindowDrawList()->AddText({cursor.x + 1, cursor.y + 1}, IM_COL32(0, 0, 0, 128), text);
+						ImGui::TextColored(color, "%s", text);
+					} else {
+						ImColor color = {255, 50, 50, 255};
+						ImGui::TextColored(color, u8"Сложность формулы не совпадает с подобранным ответом.");
+					}
+					ImGui::PopFont();
 				}
 			}
 
@@ -865,8 +906,8 @@ void MinBoolFunc::ImGuiStep() {
 
 		// ImGui::PushItemWidth(50 * dpi_scale * ImGui::GetIO().FontGlobalScale);
 		if (ImGui::BeginPopupModal(u8"Ошибка###area_must_be_in_one_area", nullptr, popup_flags)) {
-			ImGui::Text(u8"Область должна находиться либо в левой, либо в правой части карты Карно.\n"
-						u8"(Симметричные области покрываются автоматически).");
+			ImGui::Text(u8"Область должна находиться либо в левой, либо в правой части карты Карно\n"
+						u8"(симметричные области покрываются автоматически).");
 			if (ImGui::Button(u8"Ок")) {
 				ImGui::CloseCurrentPopup();
 			}

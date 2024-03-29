@@ -76,6 +76,7 @@ struct MinBoolFunc {
 	ImFont* fnt_main;
 	ImFont* fnt_mono;
 	ImFont* fnt_math;
+	ImFont* fnt_main_bold;
 
 	void Init();
 	void Quit();
