@@ -36,9 +36,8 @@ end
 };
 
 static const char* const formula_examples[] = {
-u8R"(local s = "11101100"
-function f(...)
-	return fromstr(s, ...)
+u8R"(function f(x, y, z)
+	return x and y or z
 end
 )",
 
@@ -110,6 +109,15 @@ function f(...)
 end
 )",
 
+};
+
+static const char* const function_vector_default[] = {
+	"0",
+	"00",
+	"0000",
+	"00000000",
+	"0000000000000000",
+	"00000000000000000000000000000000",
 };
 
 static const char* const lua_std_code =
@@ -194,6 +202,69 @@ static ImFont* AddFontFromFileTTF(ImFontAtlas* atlas, const char* filename, floa
 		ImFormatString(font_cfg.Name, IM_ARRAYSIZE(font_cfg.Name), "%s, %.0fpx", p, size_pixels);
 	}
 	return atlas->AddFontFromMemoryTTF(data, (int)data_size, size_pixels, &font_cfg, glyph_ranges);
+}
+
+static bool RadioButton(const char* label, bool active)
+{
+	using namespace ImGui;
+
+	ImGuiWindow* window = GetCurrentWindow();
+	if (window->SkipItems)
+		return false;
+
+	ImGuiContext& g = *GImGui;
+	const ImGuiStyle& style = g.Style;
+	const ImGuiID id = window->GetID(label);
+	const ImVec2 label_size = CalcTextSize(label, NULL, true);
+
+	const float square_sz = GetTextLineHeight() * 0.75f;
+	const ImVec2 pos = window->DC.CursorPos;
+	const ImRect total_bb(pos, pos + ImVec2(square_sz + (label_size.x > 0.0f ? style.ItemInnerSpacing.x + label_size.x : 0.0f), label_size.y));
+	ImRect check_bb(pos, pos + ImVec2(square_sz, square_sz));
+	{
+		float off = (total_bb.GetHeight() - check_bb.GetHeight()) / 2.0f;
+		check_bb.Min += ImVec2(0.0f, off);
+		check_bb.Max += ImVec2(0.0f, off);
+	}
+	ItemSize(total_bb, style.FramePadding.y);
+	if (!ItemAdd(total_bb, id))
+		return false;
+
+	// window->DrawList->AddRect(check_bb.Min, check_bb.Max, IM_COL32(255, 0, 0, 255));
+	// window->DrawList->AddRect(total_bb.Min, total_bb.Max, IM_COL32(255, 0, 0, 255));
+
+	ImVec2 center = check_bb.GetCenter();
+	center.x = IM_ROUND(center.x);
+	center.y = IM_ROUND(center.y);
+	const float radius = (square_sz - 1.0f) * 0.5f;
+
+	bool hovered, held;
+	bool pressed = ButtonBehavior(total_bb, id, &hovered, &held);
+	if (pressed)
+		MarkItemEdited(id);
+
+	RenderNavHighlight(total_bb, id);
+	const int num_segment = window->DrawList->_CalcCircleAutoSegmentCount(radius);
+	window->DrawList->AddCircleFilled(center, radius, GetColorU32((held && hovered) ? ImGuiCol_FrameBgActive : hovered ? ImGuiCol_FrameBgHovered : ImGuiCol_FrameBg), num_segment);
+	if (active)
+	{
+		const float pad = ImMax(1.0f, IM_TRUNC(square_sz / 6.0f));
+		window->DrawList->AddCircleFilled(center, radius - pad, GetColorU32(ImGuiCol_CheckMark));
+	}
+
+	if (style.FrameBorderSize > 0.0f)
+	{
+		window->DrawList->AddCircle(center + ImVec2(1, 1), radius, GetColorU32(ImGuiCol_BorderShadow), num_segment, style.FrameBorderSize);
+		window->DrawList->AddCircle(center, radius, GetColorU32(ImGuiCol_Border), num_segment, style.FrameBorderSize);
+	}
+
+	ImVec2 label_pos = ImVec2(check_bb.Max.x + style.ItemInnerSpacing.x, total_bb.Min.y);
+	if (g.LogEnabled)
+		LogRenderedText(&label_pos, active ? "(x)" : "( )");
+	if (label_size.x > 0.0f)
+		RenderText(label_pos, label);
+
+	return pressed;
 }
 
 #ifdef __ANDROID__
@@ -365,12 +436,15 @@ void MinBoolFunc::Init() {
 
 	io.IniFilename = nullptr;
 
+	int var_count = 3;
+
 	ImStrncpy(formula, formula_examples[0], sizeof(formula));
+	ImStrncpy(function_vector, function_vector_default[var_count], sizeof(function_vector));
 
 	L = luaL_newstate();
 	luaL_openlibs(L);
 
-	SetVariableCount(3);
+	SetVariableCount(var_count);
 }
 
 void MinBoolFunc::Quit() {
@@ -428,7 +502,27 @@ void MinBoolFunc::ImGuiStep() {
 									   );
 
 		// 
-		// Выбор кол-ва переменных
+		// Выбор режима ввода.
+		// 
+		{
+			ImGui::Text(u8"Режим ввода: ");
+			ImGui::SameLine();
+			ImVec2 cursor = ImGui::GetCursorPos();
+			if (RadioButton(u8"Вектор функции", input_method == INPUT_METHOD_VECTOR)) {
+				input_method = INPUT_METHOD_VECTOR;
+				CompileScript();
+			}
+			ImGui::SetCursorPosX(cursor.x);
+			if (RadioButton(u8"Формула", input_method == INPUT_METHOD_FORMULA)) {
+				input_method = INPUT_METHOD_FORMULA;
+				CompileScript();
+			}
+
+			ImGui::SetCursorPosY(ImGui::GetCursorPosY() + ImGui::GetTextLineHeight() / 2.0f);
+		}
+
+		// 
+		// Выбор кол-ва переменных.
 		// 
 		{
 			ImGui::Text(u8"Кол-во переменных: ");
@@ -445,6 +539,9 @@ void MinBoolFunc::ImGuiStep() {
 						if (formula[0] == 0) {
 							ImStrncpy(formula, formula_hint[i], sizeof(formula));
 						}
+						if (function_vector[0] == 0) {
+							ImStrncpy(function_vector, function_vector_default[i], sizeof(function_vector));
+						}
 
 						SetVariableCount(i);
 					}
@@ -457,26 +554,28 @@ void MinBoolFunc::ImGuiStep() {
 				ImGui::EndCombo();
 			}
 
-			ImGui::SameLine();
-			if (ImGui::Button(u8"Примеры")) {
-				ImGui::OpenPopup("example_context");
+			if (input_method == INPUT_METHOD_FORMULA) {
+				ImGui::SameLine();
+				if (ImGui::Button(u8"Примеры")) {
+					ImGui::OpenPopup("example_context");
+				}
 			}
 
 			if (ImGui::BeginPopupContextItem("example_context")) {
-				if (ImGui::Button(u8"Вектор функции с тремя переменными")) {
+				if (ImGui::Button(u8"Функция с тремя переменными")) {
 					ImStrncpy(formula, formula_examples[0], sizeof(formula));
 					SetVariableCount(3);
 				}
 
-				if (ImGui::Button(u8"Вектор функции с пятью переменными 1")) {
-					ImStrncpy(formula, formula_examples[3], sizeof(formula));
-					SetVariableCount(5);
-				}
+				// if (ImGui::Button(u8"Вектор функции с пятью переменными 1")) {
+				// 	ImStrncpy(formula, formula_examples[3], sizeof(formula));
+				// 	SetVariableCount(5);
+				// }
 
-				if (ImGui::Button(u8"Вектор функции с пятью переменными 2")) {
-					ImStrncpy(formula, formula_examples[8], sizeof(formula));
-					SetVariableCount(5);
-				}
+				// if (ImGui::Button(u8"Вектор функции с пятью переменными 2")) {
+				// 	ImStrncpy(formula, formula_examples[8], sizeof(formula));
+				// 	SetVariableCount(5);
+				// }
 
 				if (ImGui::Button(u8"Штрих Шеффера")) {
 					ImStrncpy(formula, formula_examples[4], sizeof(formula));
@@ -503,35 +602,79 @@ void MinBoolFunc::ImGuiStep() {
 		}
 
 		// 
-		// Ввод формулы
+		// Ввод формулы или вектора функции.
 		// 
-		ImGui::Text(u8"Формула (Lua)");
-		ImGui::PushFont(fnt_mono);
-		if (ImGui::InputTextEx("##lua_source", formula_hint[variable_count],
-							   formula, sizeof(formula),
-							   {-1, ImGui::GetTextLineHeight() * 16},
-							   ImGuiInputTextFlags_Multiline
-							   | ImGuiInputTextFlags_AllowTabInput)) {
-			CompileScript();
+		if (input_method == INPUT_METHOD_VECTOR) {
+			ImGui::Text(u8"Вектор функции:");
+			ImGui::PushFont(fnt_mono);
+
+			ImVec2 cursor = ImGui::GetCursorPos();
+
+			ImGui::SetCursorPosY(cursor.y + ImGui::GetStyle().FramePadding.y);
+			ImGui::Text("f=(");
+			ImGui::SameLine(0, 0);
+
+			auto callback = [](ImGuiInputTextCallbackData* data) -> int {
+				if (data->EventChar == '0' || data->EventChar == '1') {
+					return 0;
+				} else {
+					return 1;
+				}
+			};
+
+			ImGui::SetCursorPosY(cursor.y);
+			if (ImGui::InputTextWithHint("##function_vector", function_vector_default[variable_count],
+										 function_vector, sizeof(function_vector),
+										 ImGuiInputTextFlags_CallbackCharFilter,
+										 callback)) {
+				CompileScript();
+			}
+			ImGui::SameLine(0, 0);
+
+			ImGui::SetCursorPosY(cursor.y); // window->DC.CurrLineTextBaseOffset
+			ImGui::Text(")");
+
+			ImGui::PopFont();
+
+			int need_size = 1 << variable_count;
+			if (strlen(function_vector) != need_size) {
+				if (need_size == 4 || need_size == 32) {
+					ImGui::TextColored(COLOR_RED, u8"В векторе функции должно быть %d значения.", need_size);
+				} else {
+					ImGui::TextColored(COLOR_RED, u8"В векторе функции должно быть %d значений.", need_size);
+				}
+				goto l_window_end;
+			}
+
+		} else {
+			ImGui::Text(u8"Формула (на языке Lua):");
+			ImGui::PushFont(fnt_mono);
+			if (ImGui::InputTextEx("##lua_source", formula_hint[variable_count],
+								   formula, sizeof(formula),
+								   {-1, ImGui::GetTextLineHeight() * 16},
+								   ImGuiInputTextFlags_Multiline
+								   | ImGuiInputTextFlags_AllowTabInput)) {
+				CompileScript();
+			}
+			ImGui::PopFont();
+
+			if (script_error) {
+				ImGui::PushTextWrapPos(0);
+				ImGui::PushStyleColor(ImGuiCol_Text, (ImVec4)COLOR_RED);
+
+				ImGui::TextUnformatted(lua_err_msg);
+
+				ImGui::PopStyleColor();
+				ImGui::PopTextWrapPos();
+
+				goto l_window_end;
+			}
 		}
-		ImGui::PopFont();
-
-		if (script_error) {
-			ImGui::PushTextWrapPos(0);
-			ImGui::PushStyleColor(ImGuiCol_Text, (ImVec4)COLOR_RED);
-
-			ImGui::TextUnformatted(lua_err_msg);
-
-			ImGui::PopStyleColor();
-			ImGui::PopTextWrapPos();
-
-			goto l_window_end;
-		}
 
 		// 
-		// Таблица истинности
+		// Таблица истинности.
 		// 
-		ImGui::Text(u8"Таблица истинности");
+		ImGui::Text(u8"Таблица истинности:");
 		if (ImGui::BeginTable("truth_table", variable_count + 1, table_flags)) {
 
 			// header
@@ -573,13 +716,13 @@ void MinBoolFunc::ImGuiStep() {
 		}
 
 		// 
-		// Карта Карно
+		// Карта Карно.
 		// 
 		{
 			ImGui::PushStyleColor(ImGuiCol_HeaderActive, IM_COL32(0, 0, 0, 0));
 			ImGui::PushStyleColor(ImGuiCol_HeaderHovered, IM_COL32(0, 0, 0, 0));
 
-			ImGui::Text(u8"Карта Карно");
+			ImGui::Text(u8"Карта Карно:");
 
 			ImGui::PushFont(fnt_math);
 			{
@@ -965,32 +1108,41 @@ void MinBoolFunc::CompileScript() {
 
 	script_error = true;
 
-	if (luaL_loadstring(L, lua_std_code) != LUA_OK) {
-		const char* err = lua_tostring(L, -1);
-		ImStrncpy(lua_err_msg, err, sizeof(lua_err_msg));
-		lua_settop(L, 0);
-		return;
-	}
+	if (input_method == INPUT_METHOD_VECTOR) {
+		int need_size = 1 << variable_count;
+		if (strlen(function_vector) != need_size) {
+			return;
+		}
 
-	if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
-		const char* err = lua_tostring(L, -1);
-		ImStrncpy(lua_err_msg, err, sizeof(lua_err_msg));
-		lua_settop(L, 0);
-		return;
-	}
+	} else if (input_method == INPUT_METHOD_FORMULA) {
+		if (luaL_loadstring(L, lua_std_code) != LUA_OK) {
+			const char* err = lua_tostring(L, -1);
+			ImStrncpy(lua_err_msg, err, sizeof(lua_err_msg));
+			lua_settop(L, 0);
+			return;
+		}
 
-	if (luaL_loadstring(L, formula) != LUA_OK) {
-		const char* err = lua_tostring(L, -1);
-		ImStrncpy(lua_err_msg, err, sizeof(lua_err_msg));
-		lua_settop(L, 0);
-		return;
-	}
+		if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+			const char* err = lua_tostring(L, -1);
+			ImStrncpy(lua_err_msg, err, sizeof(lua_err_msg));
+			lua_settop(L, 0);
+			return;
+		}
 
-	if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
-		const char* err = lua_tostring(L, -1);
-		ImStrncpy(lua_err_msg, err, sizeof(lua_err_msg));
-		lua_settop(L, 0);
-		return;
+		if (luaL_loadstring(L, formula) != LUA_OK) {
+			const char* err = lua_tostring(L, -1);
+			ImStrncpy(lua_err_msg, err, sizeof(lua_err_msg));
+			lua_settop(L, 0);
+			return;
+		}
+
+		if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+			const char* err = lua_tostring(L, -1);
+			ImStrncpy(lua_err_msg, err, sizeof(lua_err_msg));
+			lua_settop(L, 0);
+			return;
+		}
+
 	}
 
 	script_error = false;
@@ -1005,39 +1157,53 @@ void MinBoolFunc::BuildTruthTable() {
 
 	memset(truth_table, 0, sizeof(truth_table));
 
-	lua_getglobal(L, "f");
-	if (!lua_isfunction(L, -1)) {
-		const char* tname = lua_typename(L, lua_type(L, -1));
-		ImFormatString(lua_err_msg, sizeof(lua_err_msg), u8"Переменная \"f\" не является функцией (%s).", tname);
-		lua_settop(L, 0);
-		script_error = true;
-		return;
-	}
-
-	for (int i = 0; i < (1 << variable_count); i++) {
-		lua_pushvalue(L, -1); // duplicate function
-
-		// push args
-		for (int j = variable_count; j--;) {
-			bool value = (i & (1 << j)) != 0;
-			lua_pushboolean(L, value);
+	if (input_method == INPUT_METHOD_VECTOR) {
+		for (int i = 0; i < (1 << variable_count); i++) {
+			if (function_vector[i] == '1') {
+				truth_table[i] = true;
+			} else if (function_vector[i] == '0') {
+				truth_table[i] = false;
+			} else {
+				assert(false);
+			}
 		}
 
-		if (lua_pcall(L, variable_count, 1, 0) != LUA_OK) {
-			const char* err = lua_tostring(L, -1);
-			ImStrncpy(lua_err_msg, err, sizeof(lua_err_msg));
+	} else if (input_method == INPUT_METHOD_FORMULA) {
+		lua_getglobal(L, "f");
+		if (!lua_isfunction(L, -1)) {
+			const char* tname = lua_typename(L, lua_type(L, -1));
+			ImFormatString(lua_err_msg, sizeof(lua_err_msg), u8"Переменная \"f\" не является функцией (%s).", tname);
 			lua_settop(L, 0);
 			script_error = true;
 			return;
 		}
 
-		bool result = lua_toboolean(L, -1);
-		truth_table[i] = result;
+		for (int i = 0; i < (1 << variable_count); i++) {
+			lua_pushvalue(L, -1); // duplicate function
 
-		lua_pop(L, 1); // pop result
+			// push args
+			for (int j = variable_count; j--;) {
+				bool value = (i & (1 << j)) != 0;
+				lua_pushboolean(L, value);
+			}
+
+			if (lua_pcall(L, variable_count, 1, 0) != LUA_OK) {
+				const char* err = lua_tostring(L, -1);
+				ImStrncpy(lua_err_msg, err, sizeof(lua_err_msg));
+				lua_settop(L, 0);
+				script_error = true;
+				return;
+			}
+
+			bool result = lua_toboolean(L, -1);
+			truth_table[i] = result;
+
+			lua_pop(L, 1); // pop result
+		}
+
+		lua_settop(L, 0);
+
 	}
-
-	lua_settop(L, 0);
 
 	BuildKarnaughMap();
 }
@@ -1631,6 +1797,11 @@ void MinBoolFunc::DrawAreas(const std::vector<Area>& areas) {
 }
 
 void MinBoolFunc::ShowResultInfo(std::vector<Area>& areas, std::string& result_lua, std::string& result_unicode, int& result_rank, bool readonly) {
+	if (areas.size() == 0) {
+		ImGui::Text(u8"Не была выделена ни одна область.");
+		return;
+	}
+
 	ImGui::Text(u8"Области:");
 	for (int i = 0; i < areas.size(); i++) {
 		const Area& area = areas[i];

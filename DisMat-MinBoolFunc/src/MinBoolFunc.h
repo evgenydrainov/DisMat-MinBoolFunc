@@ -20,13 +20,20 @@ extern "C" {
 
 // #define SHOW_IMGUI_DEMO
 
+enum InputMethod {
+	INPUT_METHOD_VECTOR,
+	INPUT_METHOD_FORMULA,
+};
+
 struct MinBoolFunc {
 	char formula[1024];
+	char function_vector[256];
 	lua_State* L;
 	int variable_count;
 	bool script_error;
 	char lua_err_msg[256];
 	bool truth_table[1 << MAX_VARIABLE_COUNT]; // TODO: pack bits
+	InputMethod input_method;
 
 	bool dragging;
 	ImGuiID drag_id;
