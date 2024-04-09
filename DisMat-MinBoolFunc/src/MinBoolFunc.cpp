@@ -9,37 +9,34 @@ static const char* const formula_hint[] = {
 	"",
 
 R"(function f(x)
-	return not x
+	return x
 end
 )",
 
 R"(function f(x, y)
-	return sheffer(x, y)
+	return x or y
 end
 )",
 
 R"(function f(x, y, z)
-	return impl(xor(x, y), z)
+	return (x and y) or z
 end
 )",
 
-R"(function f(x1, x2, x3, x4)
-	return peirce(x1, x2) or xor(x3, x4)
+R"(function f(x, y, z, w)
+	return (x and y) or (z and w)
 end
 )",
 
 R"(function f(x1, x2, x3, x4, x5)
-	return sheffer(x1, x2) and xor(impl(x3, x4), x5)
+	return (x1 and x2) or (x3 and x4) or x5
 end
 )",
 
 };
 
 static const char* const formula_examples[] = {
-u8R"(function f(x, y, z)
-	return x and y or z
-end
-)",
+	"",
 
 u8R"(local t = {1,1,1,0,1,1,0,0}
 function f(x, y, z)
@@ -109,16 +106,6 @@ function f(...)
 end
 )",
 
-u8R"(function f(x, y, z, w)
-	return (x and y) or (z and w)
-end
-)",
-
-u8R"(function f(x1, x2, x3, x4, x5)
-	return (x1 and x2) or (x3 and x4) or x5
-end
-)",
-
 };
 
 static const char* const function_vector_default[] = {
@@ -171,6 +158,12 @@ end
 
 function xor(x, y)
 	return x ~= y
+end
+
+function print_table(t)
+	for k,v in pairs(t) do
+		print(tostring(k).." = "..tostring(v))
+	end
 end
 )";
 
@@ -454,12 +447,14 @@ void MinBoolFunc::Init() {
 
 	int var_count = 3;
 
-	ImStrncpy(formula, formula_examples[0], sizeof(formula));
+	ImStrncpy(formula, formula_hint[var_count], sizeof(formula));
 	ImStrncpy(function_vector, function_vector_default[var_count], sizeof(function_vector));
 
 	L = luaL_newstate();
 	luaL_openlibs(L);
 
+	var_count_formula = var_count;
+	var_count_vector = var_count;
 	SetVariableCount(var_count);
 }
 
@@ -500,12 +495,12 @@ void MinBoolFunc::ImGuiStep() {
 			ImVec2 cursor = ImGui::GetCursorPos();
 			if (RadioButton(u8"Вектор функции", input_method == INPUT_METHOD_VECTOR)) {
 				input_method = INPUT_METHOD_VECTOR;
-				CompileScript();
+				SetVariableCount(var_count_vector);
 			}
 			ImGui::SetCursorPosX(cursor.x);
 			if (RadioButton(u8"Формула", input_method == INPUT_METHOD_FORMULA)) {
 				input_method = INPUT_METHOD_FORMULA;
-				CompileScript();
+				SetVariableCount(var_count_formula);
 			}
 
 			ImGui::SetCursorPosY(ImGui::GetCursorPosY() + ImGui::GetTextLineHeight() / 2.0f);
@@ -526,14 +521,19 @@ void MinBoolFunc::ImGuiStep() {
 					char label[] = {(char)('0' + i), 0};
 
 					if (ImGui::Selectable(label)) {
-						if (formula[0] == 0) {
-							ImStrncpy(formula, formula_hint[i], sizeof(formula));
-						}
-						if (function_vector[0] == 0) {
-							ImStrncpy(function_vector, function_vector_default[i], sizeof(function_vector));
-						}
+						if (variable_count != i) {
+							if (input_method == INPUT_METHOD_VECTOR) {
+								// if (function_vector[0] == 0) {
+									ImStrncpy(function_vector, function_vector_default[i], sizeof(function_vector));
+								// }
+							} else if (input_method == INPUT_METHOD_FORMULA) {
+								// if (formula[0] == 0) {
+									ImStrncpy(formula, formula_hint[i], sizeof(formula));
+								// }
+							}
 
-						SetVariableCount(i);
+							SetVariableCount(i);
+						}
 					}
 
 					if (i == variable_count) {
@@ -558,17 +558,17 @@ void MinBoolFunc::ImGuiStep() {
 
 			if (ImGui::BeginPopupContextItem("example_context")) {
 				if (ImGui::Button(u8"Функция с тремя переменными")) {
-					ImStrncpy(formula, formula_examples[0], sizeof(formula));
+					ImStrncpy(formula, formula_hint[3], sizeof(formula));
 					SetVariableCount(3);
 				}
 
 				if (ImGui::Button(u8"Функция с четыремя переменными")) {
-					ImStrncpy(formula, formula_examples[9], sizeof(formula));
+					ImStrncpy(formula, formula_hint[4], sizeof(formula));
 					SetVariableCount(4);
 				}
 
 				if (ImGui::Button(u8"Функция с пятью переменными")) {
-					ImStrncpy(formula, formula_examples[10], sizeof(formula));
+					ImStrncpy(formula, formula_hint[5], sizeof(formula));
 					SetVariableCount(5);
 				}
 
@@ -1132,6 +1132,55 @@ void MinBoolFunc::ImGuiStep() {
 
 }
 
+static const char* const lua_set_hook_code = u8R"(-- built-in
+local c=0
+local function hook()
+	c=c+1
+	if c>5000 then
+		error("Обнаружен бесконечный цикл.")
+	end
+end
+debug.sethook(hook,"",100)
+)";
+
+bool MinBoolFunc::lua_load_string_and_pcall(const char* string, bool with_hook) {
+	if (luaL_loadstring(L, string) != LUA_OK) {
+		const char* err = lua_tostring(L, -1);
+		if (err) {
+			ImStrncpy(lua_err_msg, err, sizeof(lua_err_msg));
+		} else {
+			ImStrncpy(lua_err_msg, u8"[Lua] Неизвестная ошибка.", sizeof(lua_err_msg));
+		}
+		lua_settop(L, 0);
+		return false;
+	}
+
+	if (with_hook) {
+		luaL_dostring(L, lua_set_hook_code);
+	}
+
+	if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+		if (with_hook) {
+			luaL_dostring(L, "debug.sethook()");
+		}
+
+		const char* err = lua_tostring(L, -1);
+		if (err) {
+			ImStrncpy(lua_err_msg, err, sizeof(lua_err_msg));
+		} else {
+			ImStrncpy(lua_err_msg, u8"[Lua] Неизвестная ошибка.", sizeof(lua_err_msg));
+		}
+		lua_settop(L, 0);
+		return false;
+	}
+
+	if (with_hook) {
+		luaL_dostring(L, "debug.sethook()");
+	}
+
+	return true;
+}
+
 void MinBoolFunc::CompileScript() {
 	dragging = false;
 	drag_id = 0;
@@ -1152,34 +1201,37 @@ void MinBoolFunc::CompileScript() {
 		}
 
 	} else if (input_method == INPUT_METHOD_FORMULA) {
-		if (luaL_loadstring(L, lua_std_code) != LUA_OK) {
-			const char* err = lua_tostring(L, -1);
-			ImStrncpy(lua_err_msg, err, sizeof(lua_err_msg));
-			lua_settop(L, 0);
+		if (!lua_load_string_and_pcall(lua_std_code)) {
 			return;
 		}
 
-		if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
-			const char* err = lua_tostring(L, -1);
-			ImStrncpy(lua_err_msg, err, sizeof(lua_err_msg));
-			lua_settop(L, 0);
+		if (!lua_load_string_and_pcall(formula)) {
 			return;
 		}
 
-		if (luaL_loadstring(L, formula) != LUA_OK) {
-			const char* err = lua_tostring(L, -1);
-			ImStrncpy(lua_err_msg, err, sizeof(lua_err_msg));
-			lua_settop(L, 0);
+		lua_pushinteger(L, variable_count);
+		lua_setglobal(L, "VAR_COUNT");
+
+		const char* error_checking_code = u8R"(-- built-in
+if type(f)~="function" then
+	error("Переменная \"f\" не является функцией ("..type(f)..").")
+end
+
+local info = debug.getinfo(f)
+if not info.isvararg then
+	if info.nparams~=VAR_COUNT then
+		if VAR_COUNT==5 then
+			error("Функция должна принимать "..tostring(VAR_COUNT).." аргументов.")
+		else
+			error("Функция должна принимать "..tostring(VAR_COUNT).." аргумента.")
+		end
+	end
+end
+)";
+
+		if (!lua_load_string_and_pcall(error_checking_code)) {
 			return;
 		}
-
-		if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
-			const char* err = lua_tostring(L, -1);
-			ImStrncpy(lua_err_msg, err, sizeof(lua_err_msg));
-			lua_settop(L, 0);
-			return;
-		}
-
 	}
 
 	script_error = false;
@@ -1224,13 +1276,23 @@ void MinBoolFunc::BuildTruthTable() {
 				lua_pushboolean(L, value);
 			}
 
+			luaL_dostring(L, lua_set_hook_code);
+
 			if (lua_pcall(L, variable_count, 1, 0) != LUA_OK) {
+				luaL_dostring(L, "debug.sethook()");
+
 				const char* err = lua_tostring(L, -1);
-				ImStrncpy(lua_err_msg, err, sizeof(lua_err_msg));
+				if (err) {
+					ImStrncpy(lua_err_msg, err, sizeof(lua_err_msg));
+				} else {
+					ImStrncpy(lua_err_msg, u8"[Lua] Неизвестная ошибка.", sizeof(lua_err_msg));
+				}
 				lua_settop(L, 0);
 				script_error = true;
 				return;
 			}
+
+			luaL_dostring(L, "debug.sethook()");
 
 			bool result = lua_toboolean(L, -1);
 			truth_table[i] = result;
@@ -1248,6 +1310,12 @@ void MinBoolFunc::BuildTruthTable() {
 void MinBoolFunc::SetVariableCount(int _variable_count) {
 	variable_count = _variable_count;
 
+	if (input_method == INPUT_METHOD_VECTOR) {
+		var_count_vector = variable_count;
+	} else if (input_method == INPUT_METHOD_FORMULA) {
+		var_count_formula = variable_count;
+	}
+
 	switch (variable_count) {
 		case 2:
 		case 3: {
@@ -1256,8 +1324,13 @@ void MinBoolFunc::SetVariableCount(int _variable_count) {
 			break;
 		}
 
+		case 4: {
+			var_names_lua = {"x", "y", "z", "w"};
+			var_names_unicode = {u8"x₁", u8"x₂", u8"x₃", u8"x₄", u8"x₅", u8"x₆", u8"x₇", u8"x₈", u8"x₉"};
+			break;
+		}
+
 		default:
-		case 4:
 		case 5: {
 			var_names_lua = {"x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9"};
 			var_names_unicode = {u8"x₁", u8"x₂", u8"x₃", u8"x₄", u8"x₅", u8"x₆", u8"x₇", u8"x₈", u8"x₉"};

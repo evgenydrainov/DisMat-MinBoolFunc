@@ -30,6 +30,8 @@ struct MinBoolFunc {
 	char function_vector[256];
 	lua_State* L;
 	int variable_count;
+	int var_count_formula;
+	int var_count_vector;
 	bool script_error;
 	char lua_err_msg[256];
 	bool truth_table[1 << MAX_VARIABLE_COUNT]; // TODO: pack bits
@@ -90,6 +92,7 @@ struct MinBoolFunc {
 
 	void ImGuiStep();
 
+	bool lua_load_string_and_pcall(const char* string, bool with_hook = true);
 	void CompileScript();
 	void BuildTruthTable();
 	void SetVariableCount(int _variable_count);
