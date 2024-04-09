@@ -97,6 +97,11 @@ struct MinBoolFunc {
 	void BuildResult(const std::vector<Area>& areas, std::string& result_lua, std::string& result_unicode, int& result_rank);
 	bool IsAreaValid(const Area& area, int* why = nullptr);
 	void DrawArea(const Area& area, ImColor color, int area_index, int& area_label_x);
+	int area_wrap_x(const Area& area, int _x);
+	int area_wrap_y(const Area& area, int _y);
+	bool is_cell_covered_by_area(const Area& area, int cell_x, int cell_y);
+	bool is_cell_covered(const std::vector<Area>& areas, int cell_x, int cell_y, int area_ignore_index = 1);
+	bool is_area_covered(const std::vector<Area>& areas, const Area& area, int area_ignore_index = -1);
 	void FindCorrectAnswer();
 	void DrawAreas(const std::vector<Area>& areas);
 	void ShowResultInfo(std::vector<Area>& areas, std::string& result_lua, std::string& result_unicode, int& result_rank, bool readonly = false);

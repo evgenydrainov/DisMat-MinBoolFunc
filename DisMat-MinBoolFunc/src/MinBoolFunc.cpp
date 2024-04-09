@@ -109,6 +109,16 @@ function f(...)
 end
 )",
 
+u8R"(function f(x, y, z, w)
+	return (x and y) or (z and w)
+end
+)",
+
+u8R"(function f(x1, x2, x3, x4, x5)
+	return (x1 and x2) or (x3 and x4) or x5
+end
+)",
+
 };
 
 static const char* const function_vector_default[] = {
@@ -118,6 +128,12 @@ static const char* const function_vector_default[] = {
 	"00000000",
 	"0000000000000000",
 	"00000000000000000000000000000000",
+};
+
+static const char* const function_vector_examples[] = {
+	"11101100",
+	"10100111101000001001100100010001",
+	"00101100001111000010111110000100",
 };
 
 static const char* const lua_std_code =
@@ -455,32 +471,6 @@ static int wrap(int a, int b) {
 	return (a % b + b) % b;
 }
 
-static void StrAppend(char* buf, int count, const char* str) {
-	bool found_null = false;
-
-	int i;
-	for (i = 0; i < count - 1; i++) {
-		if (buf[i] == 0) {
-			found_null = true;
-		}
-	}
-
-	if (!found_null) {
-		return;
-	}
-
-	int j;
-	for (j = 0; i + j < count - 1; j++) {
-		if (str[j] == 0) {
-			break;
-		}
-
-		buf[i + j] = str[j];
-	}
-
-	buf[i + j] = 0;
-}
-
 void MinBoolFunc::ImGuiStep() {
 	{
 		ImGuiIO& io = ImGui::GetIO();
@@ -556,8 +546,13 @@ void MinBoolFunc::ImGuiStep() {
 
 			if (input_method == INPUT_METHOD_FORMULA) {
 				ImGui::SameLine();
-				if (ImGui::Button(u8"Примеры")) {
+				if (ImGui::Button(u8"Примеры##1")) {
 					ImGui::OpenPopup("example_context");
+				}
+			} else if (input_method == INPUT_METHOD_VECTOR) {
+				ImGui::SameLine();
+				if (ImGui::Button(u8"Примеры##2")) {
+					ImGui::OpenPopup("vector_example_context");
 				}
 			}
 
@@ -565,6 +560,16 @@ void MinBoolFunc::ImGuiStep() {
 				if (ImGui::Button(u8"Функция с тремя переменными")) {
 					ImStrncpy(formula, formula_examples[0], sizeof(formula));
 					SetVariableCount(3);
+				}
+
+				if (ImGui::Button(u8"Функция с четыремя переменными")) {
+					ImStrncpy(formula, formula_examples[9], sizeof(formula));
+					SetVariableCount(4);
+				}
+
+				if (ImGui::Button(u8"Функция с пятью переменными")) {
+					ImStrncpy(formula, formula_examples[10], sizeof(formula));
+					SetVariableCount(5);
 				}
 
 				// if (ImGui::Button(u8"Вектор функции с пятью переменными 1")) {
@@ -595,6 +600,25 @@ void MinBoolFunc::ImGuiStep() {
 				if (ImGui::Button(u8"Сложение по модулю 2")) {
 					ImStrncpy(formula, formula_examples[7], sizeof(formula));
 					SetVariableCount(2);
+				}
+
+				ImGui::EndPopup();
+			}
+
+			if (ImGui::BeginPopupContextItem("vector_example_context")) {
+				if (ImGui::Button(u8"Вектор с тремя переменными")) {
+					ImStrncpy(function_vector, function_vector_examples[0], sizeof(function_vector));
+					SetVariableCount(3);
+				}
+
+				if (ImGui::Button(u8"Вектор с пятью переменными 1")) {
+					ImStrncpy(function_vector, function_vector_examples[1], sizeof(function_vector));
+					SetVariableCount(5);
+				}
+
+				if (ImGui::Button(u8"Вектор с пятью переменными 2")) {
+					ImStrncpy(function_vector, function_vector_examples[2], sizeof(function_vector));
+					SetVariableCount(5);
 				}
 
 				ImGui::EndPopup();
@@ -972,6 +996,11 @@ void MinBoolFunc::ImGuiStep() {
 							goto l_area_add_out;
 						}
 
+						if (is_area_covered(areas, area)) {
+							ImGui::OpenPopup("###area_already_covered");
+							goto l_area_add_out;
+						}
+
 						areas.push_back(area);
 						BuildResult(areas, result_lua, result_unicode, result_rank);
 					}
@@ -1076,6 +1105,14 @@ void MinBoolFunc::ImGuiStep() {
 
 		if (ImGui::BeginPopupModal(u8"Ошибка###area_must_contain_1s", nullptr, popup_flags)) {
 			ImGui::Text(u8"Область должна покрывать только единицы.");
+			if (ImGui::Button(u8"Ок")) {
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::EndPopup();
+		}
+
+		if (ImGui::BeginPopupModal(u8"Ошибка###area_already_covered", nullptr, popup_flags)) {
+			ImGui::Text(u8"Эта область уже покрыта.");
 			if (ImGui::Button(u8"Ок")) {
 				ImGui::CloseCurrentPopup();
 			}
@@ -1340,19 +1377,9 @@ void MinBoolFunc::BuildResult(const std::vector<Area>& areas, std::string& resul
 		bool v5_changes = false;
 
 		for (int _y = area.y; _y < area.y + area.h; _y++) {
-			int y = wrap(_y, col_header2.size());
+			int y = area_wrap_y(area, _y);
 			for (int _x = area.x; _x < area.x + area.w; _x++) {
-
-				int x;
-				if (variable_count == 5) {
-					if (area.x >= 4) {
-						x = 4 + wrap(_x - 4, 4);
-					} else {
-						x = wrap(_x, 4);
-					}
-				} else {
-					x = wrap(_x, row_header.size());
-				}
+				int x = area_wrap_x(area, _x);
 
 				if (row_header2[x][0] != v1) v1_changes = true;
 				if (row_header2[x][1] != v2) v2_changes = true;
@@ -1373,19 +1400,9 @@ void MinBoolFunc::BuildResult(const std::vector<Area>& areas, std::string& resul
 
 			if (IsAreaValid(area2)) {
 				for (int _y = area2.y; _y < area2.y + area2.h; _y++) {
-					int y = wrap(_y, col_header2.size());
+					int y = area_wrap_y(area2, _y);
 					for (int _x = area2.x; _x < area2.x + area2.w; _x++) {
-
-						int x;
-						if (variable_count == 5) {
-							if (area2.x >= 4) {
-								x = 4 + wrap(_x - 4, 4);
-							} else {
-								x = wrap(_x, 4);
-							}
-						} else {
-							x = wrap(_x, row_header.size());
-						}
+						int x = area_wrap_x(area2, _x);
 
 						if (row_header2[x][0] != v1) v1_changes = true;
 						if (row_header2[x][1] != v2) v2_changes = true;
@@ -1517,19 +1534,9 @@ bool MinBoolFunc::IsAreaValid(const Area& area, int* why) {
 
 	// must contain only 1's
 	for (int _y = area.y; _y < area.y + area.h; _y++) {
-		int y = wrap(_y, col_header.size());
+		int y = area_wrap_y(area, _y);
 		for (int _x = area.x; _x < area.x + area.w; _x++) {
-
-			int x;
-			if (variable_count == 5) {
-				if (area.x >= 4) {
-					x = 4 + wrap(_x - 4, 4);
-				} else {
-					x = wrap(_x, 4);
-				}
-			} else {
-				x = wrap(_x, row_header.size());
-			}
+			int x = area_wrap_x(area, _x);
 
 			int w = row_header.size();
 			if (!cells[x + y * w]) {
@@ -1546,20 +1553,9 @@ void MinBoolFunc::DrawArea(const Area& area, ImColor color, int area_index, int&
 	ImDrawList* list = ImGui::GetWindowDrawList();
 
 	for (int _y = area.y; _y < area.y + area.h; _y++) {
-		int y = wrap(_y, col_header.size());
-
+		int y = area_wrap_y(area, _y);
 		for (int _x = area.x; _x < area.x + area.w; _x++) {
-
-			int x;
-			if (variable_count == 5) {
-				if (area.x >= 4) {
-					x = 4 + wrap(_x - 4, 4);
-				} else {
-					x = wrap(_x, 4);
-				}
-			} else {
-				x = wrap(_x, row_header.size());
-			}
+			int x = area_wrap_x(area, _x);
 
 			ImRect rect = cell_rects[y][x];
 			ImGuiID id = cell_ids[y][x];
@@ -1607,67 +1603,84 @@ void MinBoolFunc::DrawArea(const Area& area, ImColor color, int area_index, int&
 	}
 }
 
-void MinBoolFunc::FindCorrectAnswer() {
-	areas2.clear();
+int MinBoolFunc::area_wrap_x(const Area& area, int _x) {
+	int x;
+	if (variable_count == 5) {
+		if (area.x >= 4) {
+			x = 4 + wrap(_x, 4);
+		} else {
+			x = wrap(_x, 4);
+		}
+	} else {
+		x = wrap(_x, row_header.size());
+	}
+	return x;
+}
 
-	auto check_for_area = [&](const Area& area, int cell_x, int cell_y) {
+int MinBoolFunc::area_wrap_y(const Area& area, int _y) {
+	int y = wrap(_y, col_header.size());
+	return y;
+}
 
-		for (int _y = area.y; _y < area.y + area.h; _y++) {
-			int y = wrap(_y, col_header.size());
+bool MinBoolFunc::is_cell_covered_by_area(const Area& area, int cell_x, int cell_y) {
+	for (int _y = area.y; _y < area.y + area.h; _y++) {
+		int y = area_wrap_y(area, _y);
+		for (int _x = area.x; _x < area.x + area.w; _x++) {
+			int x = area_wrap_x(area, _x);
+			if (x == cell_x && y == cell_y) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
 
-			for (int _x = area.x; _x < area.x + area.w; _x++) {
+bool MinBoolFunc::is_cell_covered(const std::vector<Area>& areas, int cell_x, int cell_y, int area_ignore_index) {
+	for (int i = 0; i < areas.size(); i++) {
+		if (i == area_ignore_index) {
+			continue;
+		}
 
-				int x;
-				if (variable_count == 5) {
-					if (area.x >= 4) {
-						x = 4 + wrap(_x - 4, 4);
-					} else {
-						x = wrap(_x, 4);
-					}
-				} else {
-					x = wrap(_x, row_header.size());
-				}
+		const Area& area = areas[i];
 
-				if (x == cell_x && y == cell_y) {
+		if (is_cell_covered_by_area(area, cell_x, cell_y)) {
+			return true;
+		}
+
+		if (variable_count == 5) {
+			Area area2 = area;
+			if (area.x < 4) {
+				area2.x = 4 + wrap(area.x, 4);
+			}
+			if (area.x >= 4) {
+				area2.x = wrap(area.x, 4);
+			}
+
+			if (IsAreaValid(area2)) {
+				if (is_cell_covered_by_area(area2, cell_x, cell_y)) {
 					return true;
 				}
 			}
 		}
-		return false;
-	};
+	}
 
-	auto is_cell_covered = [&](int cell_x, int cell_y, int area_ignore_index = -1) {
+	return false;
+}
 
-		for (int i = 0; i < areas2.size(); i++) {
-			if (i == area_ignore_index) {
-				continue;
-			}
-
-			const Area& area = areas2[i];
-
-			if (check_for_area(area, cell_x, cell_y)) {
-				return true;
-			}
-
-			if (variable_count == 5) {
-				Area area2 = area;
-				if (area.x < 4) {
-					area2.x = 4 + wrap(area.x, 4);
-				}
-				if (area.x >= 4) {
-					area2.x = wrap(area.x, 4);
-				}
-
-				if (IsAreaValid(area2)) {
-					if (check_for_area(area2, cell_x, cell_y)) {
-						return true;
-					}
-				}
-			}
+bool MinBoolFunc::is_area_covered(const std::vector<Area>& areas, const Area& area, int area_ignore_index) {
+	bool all_cells_covered = true;
+	for (int _y = area.y; _y < area.y + area.h; _y++) {
+		int y = area_wrap_y(area, _y);
+		for (int _x = area.x; _x < area.x + area.w; _x++) {
+			int x = area_wrap_x(area, _x);
+			all_cells_covered &= is_cell_covered(areas, x, y, area_ignore_index);
 		}
+	}
+	return all_cells_covered;
+}
 
-		return false;
-	};
+void MinBoolFunc::FindCorrectAnswer() {
+	areas2.clear();
 
 	for (int y = 0; y < col_header.size(); y++) {
 		for (int x = 0; x < row_header.size(); x++) {
@@ -1677,7 +1690,7 @@ void MinBoolFunc::FindCorrectAnswer() {
 				continue;
 			}
 
-			if (is_cell_covered(x, y)) {
+			if (is_cell_covered(areas2, x, y)) {
 				continue;
 			}
 
@@ -1710,17 +1723,8 @@ void MinBoolFunc::FindCorrectAnswer() {
 			areas_to_try.push_back({x, y, 1, 1});
 
 			for (Area& area : areas_to_try) {
-				if (variable_count == 5) {
-					if (x >= 4) {
-						area.x = 4 + wrap(area.x - 4, 4);
-					} else {
-						area.x = wrap(area.x, 4);
-					}
-				} else {
-					area.x = wrap(area.x, row_header.size());
-				}
-
-				area.y = wrap(area.y, col_header.size());
+				area.x = area_wrap_x(area, area.x);
+				area.y = area_wrap_y(area, area.y);
 			}
 
 			for (Area& area : areas_to_try) {
@@ -1739,29 +1743,7 @@ void MinBoolFunc::FindCorrectAnswer() {
 	for (int i = 0; i < areas2.size(); i++) {
 		const Area& area = areas2[i];
 
-		bool all_cells_covered = true;
-
-		for (int _y = area.y; _y < area.y + area.h; _y++) {
-			int y = wrap(_y, col_header.size());
-
-			for (int _x = area.x; _x < area.x + area.w; _x++) {
-
-				int x;
-				if (variable_count == 5) {
-					if (area.x >= 4) {
-						x = 4 + wrap(_x - 4, 4);
-					} else {
-						x = wrap(_x, 4);
-					}
-				} else {
-					x = wrap(_x, row_header.size());
-				}
-
-				all_cells_covered &= is_cell_covered(x, y, i);
-			}
-		}
-
-		if (all_cells_covered) {
+		if (is_area_covered(areas2, area, i)) {
 			areas2.erase(areas2.begin() + i);
 			i--;
 			continue;
