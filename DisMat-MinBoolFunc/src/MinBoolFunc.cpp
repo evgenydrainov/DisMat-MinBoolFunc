@@ -451,7 +451,34 @@ void MinBoolFunc::Init() {
 	ImStrncpy(function_vector, function_vector_default[var_count], sizeof(function_vector));
 
 	L = luaL_newstate();
-	luaL_openlibs(L);
+
+	{
+		static const luaL_Reg loadedlibs[] = {
+			{LUA_GNAME, luaopen_base},
+			{LUA_MATHLIBNAME, luaopen_math},
+			{LUA_DBLIBNAME, luaopen_debug},
+			{NULL, NULL}
+		};
+
+		const luaL_Reg *lib;
+		/* "require" functions from 'loadedlibs' and set results to global table */
+		for (lib = loadedlibs; lib->func; lib++) {
+			luaL_requiref(L, lib->name, lib->func, 1);
+			lua_pop(L, 1);  /* remove lib */
+		}
+
+		lua_pushnil(L);
+		lua_setglobal(L, "dofile");
+
+		lua_pushnil(L);
+		lua_setglobal(L, "load");
+
+		lua_pushnil(L);
+		lua_setglobal(L, "loadfile");
+
+		lua_pushnil(L);
+		lua_setglobal(L, "require");
+	}
 
 	var_count_formula = var_count;
 	var_count_vector = var_count;
@@ -557,20 +584,20 @@ void MinBoolFunc::ImGuiStep() {
 			}
 
 			if (ImGui::BeginPopupContextItem("example_context")) {
-				if (ImGui::Button(u8"Функция с тремя переменными")) {
-					ImStrncpy(formula, formula_hint[3], sizeof(formula));
-					SetVariableCount(3);
-				}
+				// if (ImGui::Button(u8"Функция с тремя переменными")) {
+				// 	ImStrncpy(formula, formula_hint[3], sizeof(formula));
+				// 	SetVariableCount(3);
+				// }
 
-				if (ImGui::Button(u8"Функция с четыремя переменными")) {
-					ImStrncpy(formula, formula_hint[4], sizeof(formula));
-					SetVariableCount(4);
-				}
+				// if (ImGui::Button(u8"Функция с четыремя переменными")) {
+				// 	ImStrncpy(formula, formula_hint[4], sizeof(formula));
+				// 	SetVariableCount(4);
+				// }
 
-				if (ImGui::Button(u8"Функция с пятью переменными")) {
-					ImStrncpy(formula, formula_hint[5], sizeof(formula));
-					SetVariableCount(5);
-				}
+				// if (ImGui::Button(u8"Функция с пятью переменными")) {
+				// 	ImStrncpy(formula, formula_hint[5], sizeof(formula));
+				// 	SetVariableCount(5);
+				// }
 
 				// if (ImGui::Button(u8"Вектор функции с пятью переменными 1")) {
 				// 	ImStrncpy(formula, formula_examples[3], sizeof(formula));
@@ -1159,11 +1186,13 @@ bool MinBoolFunc::lua_load_string_and_pcall(const char* string, bool with_hook) 
 		luaL_dostring(L, lua_set_hook_code);
 	}
 
-	if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
-		if (with_hook) {
-			luaL_dostring(L, "debug.sethook()");
-		}
+	int res = lua_pcall(L, 0, 0, 0);
 
+	if (with_hook) {
+		luaL_dostring(L, "debug.sethook()");
+	}
+
+	if (res != LUA_OK) {
 		const char* err = lua_tostring(L, -1);
 		if (err) {
 			ImStrncpy(lua_err_msg, err, sizeof(lua_err_msg));
@@ -1172,10 +1201,6 @@ bool MinBoolFunc::lua_load_string_and_pcall(const char* string, bool with_hook) 
 		}
 		lua_settop(L, 0);
 		return false;
-	}
-
-	if (with_hook) {
-		luaL_dostring(L, "debug.sethook()");
 	}
 
 	return true;
