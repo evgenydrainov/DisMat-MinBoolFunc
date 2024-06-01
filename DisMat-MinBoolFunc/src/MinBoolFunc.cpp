@@ -1029,7 +1029,7 @@ void MinBoolFunc::ImGuiStep() {
 						}
 
 						areas.push_back(area);
-						BuildResult(areas, result_lua, result_unicode, result_rank);
+						BuildResult(areas, result_lua, result_unicode, result_rank, results, result_show);
 					}
 
 				l_area_add_out:
@@ -1062,26 +1062,32 @@ void MinBoolFunc::ImGuiStep() {
 
 			}
 
-			ImGui::Checkbox(u8"Показать подобранный ответ", &show_correct_answer);
+			if (ImGui::Checkbox(u8"Показать ответ", &show_correct_answer)) {
+				show_mdnf = false;
+				show_rank = false;
+				for (auto it = result_show.begin(); it != result_show.end(); it++) {
+					*it = false;
+				}
+			}
 
 			if (show_correct_answer) {
-				ShowResultInfo(areas2, result2_lua, result2_unicode, result2_rank, true);
+				ShowResultInfo(areas2, result2_lua, result2_unicode, result2_rank, results2, result2_show, true);
 			} else {
 				if (areas.empty()) {
 					ImGui::Text(u8"Зажмите ЛКМ, чтобы выделить область.");
 				} else {
-					ShowResultInfo(areas, result_lua, result_unicode, result_rank);
+					ShowResultInfo(areas, result_lua, result_unicode, result_rank, results, result_show);
 
 					ImGui::PushFont(fnt_main_bold);
 					if (result_rank == result2_rank) {
 						ImColor color = {0, 180, 0, 255};
-						const char* text = u8"Сложность формулы совпадает с подобранным ответом.";
+						const char* text = u8"Сложность формулы совпадает с ответом.";
 						// ImVec2 cursor = ImGui::GetCursorScreenPos();
 						// ImGui::GetWindowDrawList()->AddText({cursor.x + 1, cursor.y + 1}, IM_COL32(0, 0, 0, 128), text);
 						ImGui::TextColored(color, "%s", text);
 					} else {
 						ImColor color = {255, 50, 50, 255};
-						ImGui::TextColored(color, u8"Сложность формулы не совпадает с подобранным ответом.");
+						ImGui::TextColored(color, u8"Сложность формулы не совпадает с ответом.");
 					}
 					ImGui::PopFont();
 				}
@@ -1454,10 +1460,19 @@ void MinBoolFunc::BuildKarnaughMap() {
 	FindCorrectAnswer();
 }
 
-void MinBoolFunc::BuildResult(const std::vector<Area>& areas, std::string& result_lua, std::string& result_unicode, int& result_rank) {
+void MinBoolFunc::BuildResult(const std::vector<Area>& areas, std::string& result_lua,
+							  std::string& result_unicode, int& result_rank,
+							  std::vector<std::string>& results, std::vector<bool>& result_show) {
 	result_lua.clear();
 	result_unicode.clear();
 	result_rank = 0;
+	results.clear();
+	result_show.clear();
+
+	if (&areas == &this->areas) { // @Hack
+		show_mdnf = false;
+		show_rank = false;
+	}
 
 	for (int i = 0; i < areas.size(); i++) {
 		const Area& area = areas[i];
@@ -1568,11 +1583,23 @@ void MinBoolFunc::BuildResult(const std::vector<Area>& areas, std::string& resul
 
 		bool needdelim = false;
 
+		results.emplace_back();
+		int area_index = i;
+
+		result_show.emplace_back();
+
 		for (int i = 0; i < variable_count; i++) {
 			if (!x_changes[i]) {
 				if (needdelim) {
 					result_lua += " and ";
-					result_unicode += u8" ∧ ";
+
+					// result_unicode += u8" ∧ ";
+
+					// result_unicode += u8" · ";
+					// results[area_index] += u8" · ";
+
+					result_unicode += u8" ";
+					results[area_index] += u8" ";
 
 					needdelim = false;
 				}
@@ -1593,6 +1620,8 @@ void MinBoolFunc::BuildResult(const std::vector<Area>& areas, std::string& resul
 
 						result_unicode += u8"¬";
 						result_unicode += var_names_unicode[i];
+						results[area_index] += u8"¬";
+						results[area_index] += var_names_unicode[i];
 					}
 
 					needdelim = true;
@@ -1609,6 +1638,7 @@ void MinBoolFunc::BuildResult(const std::vector<Area>& areas, std::string& resul
 						// result_unicode += buf;
 
 						result_unicode += var_names_unicode[i];
+						results[area_index] += var_names_unicode[i];
 					}
 
 					needdelim = true;
@@ -1848,7 +1878,7 @@ void MinBoolFunc::FindCorrectAnswer() {
 		}
 	}
 
-	BuildResult(areas2, result2_lua, result2_unicode, result2_rank);
+	BuildResult(areas2, result2_lua, result2_unicode, result2_rank, results2, result2_show);
 }
 
 void MinBoolFunc::DrawAreas(const std::vector<Area>& areas) {
@@ -1876,7 +1906,10 @@ void MinBoolFunc::DrawAreas(const std::vector<Area>& areas) {
 	}
 }
 
-void MinBoolFunc::ShowResultInfo(std::vector<Area>& areas, std::string& result_lua, std::string& result_unicode, int& result_rank, bool readonly) {
+void MinBoolFunc::ShowResultInfo(std::vector<Area>& areas, std::string& result_lua,
+								 std::string& result_unicode, int& result_rank,
+								 std::vector<std::string>& results, std::vector<bool>& result_show,
+								 bool readonly) {
 	if (areas.size() == 0) {
 		ImGui::Text(u8"Не была выделена ни одна область.");
 		return;
@@ -1912,7 +1945,7 @@ void MinBoolFunc::ShowResultInfo(std::vector<Area>& areas, std::string& result_l
 			if (b) {
 				areas.erase(areas.begin() + i);
 				i--;
-				BuildResult(areas, result_lua, result_unicode, result_rank);
+				BuildResult(areas, result_lua, result_unicode, result_rank, results, result_show);
 				continue;
 			}
 
@@ -1921,13 +1954,31 @@ void MinBoolFunc::ShowResultInfo(std::vector<Area>& areas, std::string& result_l
 
 		ImVec4 color = ImGui::ColorConvertU32ToFloat4(area_colors[i % IM_ARRAYSIZE(area_colors)]);
 		color.w = 1;
-		ImGui::TextColored(color,
-						   "S%s: (%d,%d), (%dx%d)",
-						   subscript, area.x, area.y, area.w, area.h);
+		// ImGui::TextColored(color,
+		// 				   "S%s: (%d,%d), (%dx%d)",
+		// 				   subscript, area.x, area.y, area.w, area.h);
+
+		ImGui::TextColored(color, "S%s:", subscript);
+		ImGui::SameLine();
+
+		if (result_show[i] || readonly) { // @Hack
+			ImGui::PushFont(fnt_math);
+			ImGui::TextColored(color, "%s", results[i].c_str());
+			ImGui::PopFont();
+		} else {
+			ImGui::PushID(i);
+			if (ImGui::SmallButton(u8"Показать")) {
+				result_show[i] = true;
+			}
+			ImGui::PopID();
+		}
 	}
 
-	ImGui::Text(u8"МДНФ: (ПКМ - скопировать)");
+	ImGui::Text(u8"МДНФ:");
 
+	ImGui::SameLine();
+
+	/*
 	if (!result_lua.empty()) {
 		ImGui::PushTextWrapPos(0);
 		ImGui::PushFont(fnt_mono);
@@ -1943,22 +1994,39 @@ void MinBoolFunc::ShowResultInfo(std::vector<Area>& areas, std::string& result_l
 			ImGui::EndPopup();
 		}
 	}
+	*/
 
-	if (!result_unicode.empty()) {
-		ImGui::PushTextWrapPos(0);
-		ImGui::PushFont(fnt_math);
-		ImGui::TextUnformatted(result_unicode.c_str());
-		ImGui::PopFont();
-		ImGui::PopTextWrapPos();
+	if (show_mdnf || readonly) {
+		if (!result_unicode.empty()) {
+			ImGui::PushTextWrapPos(0);
+			ImGui::PushFont(fnt_math);
+			ImGui::TextUnformatted(result_unicode.c_str());
+			ImGui::PopFont();
+			ImGui::PopTextWrapPos();
 
-		if (ImGui::BeginPopupContextItem("result_unicode_context")) {
-			if (ImGui::Button(u8"Копировать")) {
-				ImGui::SetClipboardText(result_unicode.c_str());
+			if (ImGui::BeginPopupContextItem("result_unicode_context")) {
+				if (ImGui::Button(u8"Копировать")) {
+					ImGui::SetClipboardText(result_unicode.c_str());
+				}
+
+				ImGui::EndPopup();
 			}
-
-			ImGui::EndPopup();
+		}
+	} else {
+		if (ImGui::SmallButton(u8"Показать##show_mdnf")) {
+			show_mdnf = true;
 		}
 	}
 
-	ImGui::Text(u8"Сложность: %d", result_rank);
+	ImGui::Text(u8"Сложность:");
+
+	ImGui::SameLine();
+
+	if (show_rank || readonly) {
+		ImGui::Text("%d", result_rank);
+	} else {
+		if (ImGui::SmallButton(u8"Показать##show_rank")) {
+			show_rank = true;
+		}
+	}
 }

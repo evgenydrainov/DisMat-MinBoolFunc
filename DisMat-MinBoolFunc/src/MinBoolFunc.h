@@ -35,6 +35,7 @@ struct MinBoolFunc {
 	bool script_error;
 	char lua_err_msg[256];
 	bool truth_table[1 << MAX_VARIABLE_COUNT]; // TODO: pack bits
+											   // No, actual TODO: rewrite the whole program.
 	InputMethod input_method;
 
 	bool dragging;
@@ -59,6 +60,12 @@ struct MinBoolFunc {
 	std::string result2_unicode;
 	int result_rank = 0;
 	int result2_rank = 0;
+	std::vector<std::string> results;
+	std::vector<std::string> results2;
+	std::vector<bool> result_show;
+	std::vector<bool> result2_show;
+	bool show_mdnf;
+	bool show_rank;
 
 	int karnaugh_xoff;
 	int karnaugh_yoff;
@@ -97,7 +104,9 @@ struct MinBoolFunc {
 	void BuildTruthTable();
 	void SetVariableCount(int _variable_count);
 	void BuildKarnaughMap();
-	void BuildResult(const std::vector<Area>& areas, std::string& result_lua, std::string& result_unicode, int& result_rank);
+	void BuildResult(const std::vector<Area>& areas, std::string& result_lua,
+					 std::string& result_unicode, int& result_rank,
+					 std::vector<std::string>& results, std::vector<bool>& result_show);
 	bool IsAreaValid(const Area& area, int* why = nullptr);
 	void DrawArea(const Area& area, ImColor color, int area_index, int& area_label_x);
 	int area_wrap_x(const Area& area, int _x);
@@ -107,5 +116,8 @@ struct MinBoolFunc {
 	bool is_area_covered(const std::vector<Area>& areas, const Area& area, int area_ignore_index = -1);
 	void FindCorrectAnswer();
 	void DrawAreas(const std::vector<Area>& areas);
-	void ShowResultInfo(std::vector<Area>& areas, std::string& result_lua, std::string& result_unicode, int& result_rank, bool readonly = false);
+	void ShowResultInfo(std::vector<Area>& areas, std::string& result_lua,
+						std::string& result_unicode, int& result_rank,
+						std::vector<std::string>& results, std::vector<bool>& result_show,
+						bool readonly = false);
 };
