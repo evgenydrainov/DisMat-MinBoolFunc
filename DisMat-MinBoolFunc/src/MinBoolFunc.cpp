@@ -1,4 +1,4 @@
-﻿#include "MinBoolFunc.h"
+#include "MinBoolFunc.h"
 
 extern "C" {
 #include "lauxlib.h"
