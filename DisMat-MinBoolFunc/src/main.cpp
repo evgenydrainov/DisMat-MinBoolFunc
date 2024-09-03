@@ -61,7 +61,7 @@ int main(int argc, char* argv[])
 	int work_h = monitor_info.rcWork.bottom - monitor_info.rcWork.top;
 
 	int window_w = 680 * dpi_scale; // 850;
-	int window_h = work_h * 0.95; // 800 * dpi_scale; // 1000;
+	int window_h = 800 * dpi_scale; // 1000;
 
 	int window_x = work_x + (work_w - window_w) / 2;
 	int window_y = work_y + (work_h - window_h) / 2;

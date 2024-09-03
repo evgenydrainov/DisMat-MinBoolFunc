@@ -45,8 +45,13 @@ int main(int, char**)
 	if (!glfwInit())
 		return 1;
 
+	float dpi_scale = 1; // @Todo
+
+	int window_w = 680 * dpi_scale; // 850;
+	int window_h = 800 * dpi_scale; // 1000;
+
 	// Create window with graphics context
-	GLFWwindow* window = glfwCreateWindow(1280, 720, "Минимизация булевых функций", nullptr, nullptr);
+	GLFWwindow* window = glfwCreateWindow(window_w, window_h, "Минимизация булевых функций", nullptr, nullptr);
 	if (window == nullptr)
 		return 1;
 	glfwMakeContextCurrent(window);
@@ -64,7 +69,7 @@ int main(int, char**)
 	ImGui_ImplOpenGL2_Init();
 
 	// Our state
-	#ifdef SHOW_IMGUI_DEMO
+#ifdef SHOW_IMGUI_DEMO
 	bool show_demo_window = true;
 #else
 	bool show_demo_window = false;
@@ -72,7 +77,7 @@ int main(int, char**)
 	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 	program = {};
-	program.dpi_scale = 1;
+	program.dpi_scale = dpi_scale;
 	program.Init();
 
 	// Main loop
