@@ -514,14 +514,20 @@ void MinBoolFunc::ImGuiStep() {
 			}
 		}
 
-		if (ImGui::BeginMenuBar()) {
-			if (ImGui::BeginMenu(u8"Помощь")) {
-				if (ImGui::MenuItem(u8"Руководство")) { ImGui::OpenPopup("###guide"); printf("123\n"); }
+		{
+			bool open_guide = false;
 
-				ImGui::EndMenu();
+			if (ImGui::BeginMenuBar()) {
+				if (ImGui::BeginMenu(u8"Помощь")) {
+					if (ImGui::MenuItem(u8"Руководство")) open_guide = true;
+
+					ImGui::EndMenu();
+				}
+
+				ImGui::EndMenuBar();
 			}
 
-			ImGui::EndMenuBar();
+			if (open_guide) ImGui::OpenPopup("###guide");
 		}
 
 		ImGuiTableFlags table_flags = (ImGuiTableFlags_Borders
