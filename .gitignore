@@ -2,3 +2,6 @@
 out/
 *.vcxproj.user
 imgui.ini
+build/
+*.ttf
+*.ttc

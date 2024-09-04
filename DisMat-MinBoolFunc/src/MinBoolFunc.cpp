@@ -495,17 +495,34 @@ static int wrap(int a, int b) {
 
 void MinBoolFunc::ImGuiStep() {
 	{
-		ImGuiIO& io = ImGui::GetIO();
-
 #ifndef SHOW_IMGUI_DEMO
 		ImGui::SetNextWindowPos({});
-		ImGui::SetNextWindowSize(io.DisplaySize);
+		ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
 #endif
 	}
 
 	if (ImGui::Begin(u8"Минимизация булевых функций", nullptr,
 					 ImGuiWindowFlags_NoDecoration
-					 | ImGuiWindowFlags_NoSavedSettings)) {
+					 | ImGuiWindowFlags_NoSavedSettings
+					 | ImGuiWindowFlags_MenuBar)) {
+
+		{
+			static bool show_guide = true;
+			if (show_guide) {
+				ImGui::OpenPopup("###guide");
+				show_guide = false;
+			}
+		}
+
+		if (ImGui::BeginMenuBar()) {
+			if (ImGui::BeginMenu(u8"Помощь")) {
+				if (ImGui::MenuItem(u8"Руководство")) { ImGui::OpenPopup("###guide"); printf("123\n"); }
+
+				ImGui::EndMenu();
+			}
+
+			ImGui::EndMenuBar();
+		}
 
 		ImGuiTableFlags table_flags = (ImGuiTableFlags_Borders
 									   | ImGuiTableFlags_RowBg
@@ -1149,6 +1166,20 @@ void MinBoolFunc::ImGuiStep() {
 			if (ImGui::Button(u8"Ок")) {
 				ImGui::CloseCurrentPopup();
 			}
+			ImGui::EndPopup();
+		}
+
+		ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize * 0.9f);
+
+		if (ImGui::BeginPopupModal(u8"Руководство###guide", nullptr, popup_flags)) {
+			ImGui::TextUnformatted(u8R"(Это руководство можно открыть в меню Помощь -> Руководство.
+
+)");
+
+			if (ImGui::Button(u8"Закрыть")) {
+				ImGui::CloseCurrentPopup();
+			}
+
 			ImGui::EndPopup();
 		}
 
