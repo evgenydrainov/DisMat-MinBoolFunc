@@ -509,17 +509,19 @@ void MinBoolFunc::ImGuiStep() {
 		{
 			static bool show_guide = true;
 			if (show_guide) {
-				ImGui::OpenPopup("###guide");
+				// ImGui::OpenPopup("###guide");
 				show_guide = false;
 			}
 		}
 
 		{
 			bool open_guide = false;
+			bool open_about = false;
 
 			if (ImGui::BeginMenuBar()) {
 				if (ImGui::BeginMenu(u8"Помощь")) {
-					if (ImGui::MenuItem(u8"Руководство")) open_guide = true;
+					// if (ImGui::MenuItem(u8"Руководство")) open_guide = true;
+					if (ImGui::MenuItem(u8"О программе")) open_about = true;
 
 					ImGui::EndMenu();
 				}
@@ -528,6 +530,7 @@ void MinBoolFunc::ImGuiStep() {
 			}
 
 			if (open_guide) ImGui::OpenPopup("###guide");
+			if (open_about) ImGui::OpenPopup("###about");
 		}
 
 		ImGuiTableFlags table_flags = (ImGuiTableFlags_Borders
@@ -1181,6 +1184,26 @@ void MinBoolFunc::ImGuiStep() {
 			ImGui::TextUnformatted(u8R"(Это руководство можно открыть в меню Помощь -> Руководство.
 
 )");
+
+			if (ImGui::Button(u8"Закрыть")) {
+				ImGui::CloseCurrentPopup();
+			}
+
+			ImGui::EndPopup();
+		}
+
+		if (ImGui::BeginPopupModal(u8"О программе###about", nullptr, popup_flags)) {
+			ImGui::Text(u8R"(Версия: %s
+
+Dear ImGui (Copyright (C) 2014-2024 Omar Cornut)
+(https://www.dearimgui.com/).
+
+Lua (Copyright (C) 1994-2024 Lua.org, PUC-Rio.)
+(https://www.lua.org/).
+
+Portions of this software are copyright (C) 2023 The FreeType
+Project (www.freetype.org).  All rights reserved.
+)", PROGRAM_VERSION);
 
 			if (ImGui::Button(u8"Закрыть")) {
 				ImGui::CloseCurrentPopup();
