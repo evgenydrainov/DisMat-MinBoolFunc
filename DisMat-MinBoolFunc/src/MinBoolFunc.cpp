@@ -509,7 +509,7 @@ void MinBoolFunc::ImGuiStep() {
 		{
 			static bool show_guide = true;
 			if (show_guide) {
-				// ImGui::OpenPopup("###guide");
+				ImGui::OpenPopup("###guide");
 				show_guide = false;
 			}
 		}
@@ -520,7 +520,7 @@ void MinBoolFunc::ImGuiStep() {
 
 			if (ImGui::BeginMenuBar()) {
 				if (ImGui::BeginMenu(u8"Помощь")) {
-					// if (ImGui::MenuItem(u8"Руководство")) open_guide = true;
+					if (ImGui::MenuItem(u8"Руководство")) open_guide = true;
 					if (ImGui::MenuItem(u8"О программе")) open_about = true;
 
 					ImGui::EndMenu();
@@ -1183,6 +1183,19 @@ void MinBoolFunc::ImGuiStep() {
 		if (ImGui::BeginPopupModal(u8"Руководство###guide", nullptr, popup_flags)) {
 			ImGui::TextUnformatted(u8R"(Это руководство можно открыть в меню Помощь -> Руководство.
 
+Минимизация булевых функций с помощью карты Карно.
+
+Алгоритм:
+1. Построить таблицу истинности.
+2. Переписать таблицу в виде карты Карно.
+3. Покрыть карту Карно прямоугольными областями площадью 2ⁿ в соответствии со
+следующим принципом: количество областей должно быть как можно меньше, площади
+областей как можно больше. Области могут пересекаться.
+4. Каждой области соответствует элементарная конъюнкция, построенная по
+следующему правилу: в неё входят переменные, которые сохраняют своё значение в
+степени, равной этому значению.
+5. Все элементы конъюнкции, соответствующие областям, соединяются знаком
+дизъюнкции и получается минимальная дизъюнктивная нормальная форма.
 )");
 
 			if (ImGui::Button(u8"Закрыть")) {
@@ -2000,6 +2013,7 @@ void MinBoolFunc::ShowResultInfo(std::vector<Area>& areas, std::string& result_l
 		if (!readonly) {
 			ImGui::PushID((i + 1) * 100);
 			bool b = ImGui::Button(" - ");
+			ImGui::SetItemTooltip(u8"Удалить область");
 			ImGui::PopID();
 
 			if (b) {
