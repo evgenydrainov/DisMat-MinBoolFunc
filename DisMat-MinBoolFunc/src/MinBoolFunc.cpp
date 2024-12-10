@@ -1,5 +1,7 @@
 ﻿#include "MinBoolFunc.h"
 
+#include "imgui_markdown.h"
+
 extern "C" {
 #include "lauxlib.h"
 #include "lualib.h"
@@ -178,6 +180,37 @@ static const ImColor area_colors[] = {
 	{0xFF, 0x00, 0x00, 0x40},
 	{0x00, 0x00, 0xFF, 0x40},
 };
+
+static const char guide_text[] =
+u8R"(Это руководство можно открыть в меню Помощь -> Руководство.
+# Минимизация булевых функций с помощью карты Карно.
+Алгоритм:
+  * Построить таблицу истинности.
+  * Переписать таблицу в виде карты Карно.
+  * Покрыть карту Карно прямоугольными областями площадью 2ⁿ в соответствии со
+следующим принципом: количество областей должно быть как можно меньше, площади
+областей как можно больше. Области могут пересекаться.
+  * Каждой области соответствует элементарная конъюнкция, построенная по
+следующему правилу: в неё входят переменные, которые сохраняют своё значение в
+степени, равной этому значению.
+  * Все элементы конъюнкции, соответствующие областям, соединяются знаком
+дизъюнкции и получается минимальная дизъюнктивная нормальная форма.
+
+)";
+
+static const char about_page_text[] =
+u8R"(Dear ImGui (Copyright (C) 2014-2024 Omar Cornut)
+([www.dearimgui.com](https://www.dearimgui.com/)).
+
+Lua (Copyright (C) 1994-2024 Lua.org, PUC-Rio.)
+([www.lua.org](https://www.lua.org/)).
+
+Portions of this software are copyright (C) 2023 The FreeType
+Project ([www.freetype.org](https://www.freetype.org/)).  All rights reserved.
+
+)";
+
+static ImGui::MarkdownConfig mdConfig;
 
 /*
 void* operator new(size_t size) {
@@ -441,6 +474,11 @@ void MinBoolFunc::Init() {
 		}
 
 		io.Fonts->Build();
+
+		extern void LinkCallback( ImGui::MarkdownLinkCallbackData data_ );
+
+		mdConfig.headingFormats[0] = {fnt_main_bold, true};
+		mdConfig.linkCallback = LinkCallback;
 	}
 
 	io.IniFilename = nullptr;
@@ -1180,23 +1218,11 @@ void MinBoolFunc::ImGuiStep() {
 
 		ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize * 0.9f);
 
-		if (ImGui::BeginPopupModal(u8"Руководство###guide", nullptr, popup_flags)) {
-			ImGui::TextUnformatted(u8R"(Это руководство можно открыть в меню Помощь -> Руководство.
+		if (ImGui::BeginPopupModal(u8"Руководство###guide", nullptr,
+								   popup_flags & ~ImGuiWindowFlags_NoScrollbar)) {
+			// ImGui::TextUnformatted(guide_text);
 
-Минимизация булевых функций с помощью карты Карно.
-
-Алгоритм:
-1. Построить таблицу истинности.
-2. Переписать таблицу в виде карты Карно.
-3. Покрыть карту Карно прямоугольными областями площадью 2ⁿ в соответствии со
-следующим принципом: количество областей должно быть как можно меньше, площади
-областей как можно больше. Области могут пересекаться.
-4. Каждой области соответствует элементарная конъюнкция, построенная по
-следующему правилу: в неё входят переменные, которые сохраняют своё значение в
-степени, равной этому значению.
-5. Все элементы конъюнкции, соответствующие областям, соединяются знаком
-дизъюнкции и получается минимальная дизъюнктивная нормальная форма.
-)");
+			ImGui::Markdown(guide_text, sizeof(guide_text) - 1, mdConfig);
 
 			if (ImGui::Button(u8"Закрыть")) {
 				ImGui::CloseCurrentPopup();
@@ -1205,18 +1231,12 @@ void MinBoolFunc::ImGuiStep() {
 			ImGui::EndPopup();
 		}
 
+		ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize * 0.7f);
+
 		if (ImGui::BeginPopupModal(u8"О программе###about", nullptr, popup_flags)) {
-			ImGui::Text(u8R"(Версия: %s
+			ImGui::Text(u8"Версия: %s\n\n", PROGRAM_VERSION);
 
-Dear ImGui (Copyright (C) 2014-2024 Omar Cornut)
-(https://www.dearimgui.com/).
-
-Lua (Copyright (C) 1994-2024 Lua.org, PUC-Rio.)
-(https://www.lua.org/).
-
-Portions of this software are copyright (C) 2023 The FreeType
-Project (www.freetype.org).  All rights reserved.
-)", PROGRAM_VERSION);
+			ImGui::Markdown(about_page_text, sizeof(about_page_text) - 1, mdConfig);
 
 			if (ImGui::Button(u8"Закрыть")) {
 				ImGui::CloseCurrentPopup();

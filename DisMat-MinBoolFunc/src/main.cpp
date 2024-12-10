@@ -11,6 +11,7 @@
 #include "imgui.h"
 #include "imgui_impl_dx9.h"
 #include "imgui_impl_win32.h"
+#include "imgui_markdown.h"
 #include <d3d9.h>
 #include <tchar.h>
 
@@ -36,6 +37,15 @@ static HMONITOR GetPrimaryMonitorHandle()
 {
 	const POINT ptZero = { 0, 0 };
 	return ::MonitorFromPoint(ptZero, MONITOR_DEFAULTTOPRIMARY);
+}
+
+void LinkCallback( ImGui::MarkdownLinkCallbackData data_ )
+{
+	std::string url( data_.link, data_.linkLength );
+	if( !data_.isImage )
+	{
+		ShellExecuteA( NULL, "open", url.c_str(), NULL, NULL, SW_SHOWNORMAL );
+	}
 }
 
 #ifdef NDEBUG
