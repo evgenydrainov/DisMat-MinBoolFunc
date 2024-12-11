@@ -14,6 +14,7 @@
 #ifdef __unix__
 
 #include "imgui.h"
+#include "imgui_markdown.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl2.h"
 #include <stdio.h>
@@ -30,6 +31,10 @@
 #if defined(_MSC_VER) && (_MSC_VER >= 1900) && !defined(IMGUI_DISABLE_WIN32_FUNCTIONS)
 #pragma comment(lib, "legacy_stdio_definitions")
 #endif
+
+void LinkCallback( ImGui::MarkdownLinkCallbackData data_ )
+{
+}
 
 static void glfw_error_callback(int error, const char* description)
 {
