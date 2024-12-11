@@ -76,7 +76,7 @@ int main(int argc, char* argv[])
 	int window_x = work_x + (work_w - window_w) / 2;
 	int window_y = work_y + (work_h - window_h) / 2;
 
-	HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Минимизация булевых функций",
+	HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"MinMapKarno",
 								WS_OVERLAPPEDWINDOW,
 								window_x, window_y,
 								window_w, window_h,
