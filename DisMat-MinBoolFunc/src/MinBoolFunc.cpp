@@ -123,6 +123,8 @@ static const char* const function_vector_examples[] = {
 	"11101100",
 	"10100111101000001001100100010001",
 	"00101100001111000010111110000100",
+	"1101101100000100",
+	"1010011110100000",
 };
 
 static const char* const lua_std_code =
@@ -183,18 +185,34 @@ static const ImColor area_colors[] = {
 
 static const char guide_text[] =
 u8"Это руководство можно открыть в меню Помощь -> Руководство.\n"
-u8"# Минимизация булевых функций с помощью карты Карно.\n"
+u8"# Минимизация булевых функций с помощью карты Карно\n"
 u8"Алгоритм:\n"
 u8"  * Построить таблицу истинности.\n"
 u8"  * Переписать таблицу в виде карты Карно.\n"
 u8"  * Покрыть карту Карно прямоугольными областями площадью 2ⁿ в соответствии"
 u8" со следующим принципом: количество областей должно быть как можно меньше, площади"
-u8" областей как можно больше. Области могут пересекаться.\n"
+u8" областей должны быть как можно больше. Области могут пересекаться.\n"
 u8"  * Каждой области соответствует элементарная конъюнкция, построенная по следующему"
 u8" правилу: в неё входят переменные, которые сохраняют своё значение в степени, равной этому значению.\n"
 u8"  * Все элементы конъюнкции, соответствующие областям, соединяются знаком дизъюнкции и"
 u8" получается минимальная дизъюнктивная нормальная форма.\n"
-u8"\n";
+u8"# Как пользоваться этой программой?\n"
+u8"  * Выберите режим ввода (вектор функции или формула).\n"
+u8"  * Выберите количество переменных функции.\n"
+u8"  * Введите функцию выбранным способом.\n"
+u8"  * Покройте карту Карно областями. Чтобы создать область, зажмите ЛКМ в углу области,"
+u8" которую вы ходите создать, и отпустите в противоположном углу.\n"
+u8"# Ввод функции с помощью формулы\n"
+u8"Формула вводится на скриптовом языке Lua. Ознакомиться с основами языка Lua"
+u8" можно по ссылке: [https://www.lua.org/pil/contents.html](https://www.lua.org/pil/contents.html)\n"
+u8"Вы можете использовать следующие функции:\n"
+u8"  * sheffer(x, y) - штрих Шеффера,\n"
+u8"  * peirce(x, y) - стрелка Пирса,\n"
+u8"  * impl(x, y) - импликация,\n"
+u8"  * xor(x, y) - исключающее или (сложение по модулю 2).\n"
+u8"Эти функции принимают два аргумента булевого типа и возвращают булевое значение.\n"
+u8"\n"
+;
 
 static const char about_page_text[] =
 u8R"(Dear ImGui (Copyright (C) 2014-2024 Omar Cornut)
@@ -695,17 +713,27 @@ void MinBoolFunc::ImGuiStep() {
 			}
 
 			if (ImGui::BeginPopupContextItem("vector_example_context")) {
-				if (ImGui::Button(u8"Вектор с тремя переменными")) {
+				if (ImGui::Button(function_vector_examples[0])) {
 					ImStrncpy(function_vector, function_vector_examples[0], sizeof(function_vector));
 					SetVariableCount(3);
 				}
 
-				if (ImGui::Button(u8"Вектор с пятью переменными 1")) {
+				if (ImGui::Button(function_vector_examples[3])) {
+					ImStrncpy(function_vector, function_vector_examples[3], sizeof(function_vector));
+					SetVariableCount(4);
+				}
+
+				if (ImGui::Button(function_vector_examples[4])) {
+					ImStrncpy(function_vector, function_vector_examples[4], sizeof(function_vector));
+					SetVariableCount(4);
+				}
+
+				if (ImGui::Button(function_vector_examples[1])) {
 					ImStrncpy(function_vector, function_vector_examples[1], sizeof(function_vector));
 					SetVariableCount(5);
 				}
 
-				if (ImGui::Button(u8"Вектор с пятью переменными 2")) {
+				if (ImGui::Button(function_vector_examples[2])) {
 					ImStrncpy(function_vector, function_vector_examples[2], sizeof(function_vector));
 					SetVariableCount(5);
 				}
